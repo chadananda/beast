@@ -1,0 +1,529 @@
+<?php
+/**
+ * @file
+ * Code for the Beast feature.
+ */
+
+include_once('beast.features.inc');
+
+// my custom code here
+
+function beast_menu() { 
+  
+  $items['admin/config/development/beast'] = array(
+    'title' => 'Beast Tools',
+    'description' => 'Settings for Beast Content Promotion system',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_admin_settings_form', NULL),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+   // 'file' => 'koc.admin.inc',
+    'weight' => -20,
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/development/beast/feed-settings'] = array(
+    'title' => 'Feeds',
+    'description' => 'Settings for Beast Feeds',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_admin_settings_form', NULL),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    //'file' => 'koc.admin.inc',
+    'type'  => MENU_DEFAULT_LOCAL_TASK,
+  );
+  
+ $items['new_rss.xml'] = array(
+    'page callback' => 'beast_show_rss',
+   // 'page arguments' => array('rss'),
+    'access callback' => TRUE,
+  //  'file' => 'koc.admin.inc',
+    'type'  => MENU_CALLBACK,
+ );
+  
+ return $items; 
+}
+
+/**
+ * Implements hook_filter_info().
+ 
+function beast_filter_info() {
+  $filters[''] = array(
+    'title' => t('Pirate filter'),
+    'description' => t('Ah, Squiddy! I got nothing against ye. I just heard there was gold in yer belly. Ha ha har, ha ha ha har!'),
+    'process callback' => 'pirate_filter_process',
+    'settings callback' => 'pirate_filter_settings',
+    'default settings' => array(
+      'pirate_display_tip' => 1,
+    ),
+    'tips callback' => 'pirate_filter_tips',
+  );
+  return $filters;
+}*/
+
+
+/**
+ *  
+ */
+function beast_admin_settings_form($form, &$form_state) {
+  // beast_update_blink_goals_cronjob(); // for testing 
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_forms.css'); 
+  
+  //=========================================== 
+  $form['site_config'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('General KOC Settings'), 
+      '#collapsible'    => TRUE,
+      '#collapsed'      => TRUE,
+    );
+  if (!variable_get('beast_files_folder', '')) variable_set('beast_files_folder', 
+    beast_spintax_filter('{files|pod|loc|get|spc|fld|dat|kfiles}')); 
+  $form['site_config']['beast_files_folder'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Files folder name'),
+    '#default_value'   => variable_get('beast_files_folder', 'files'),
+    '#description'    => t('Choose a file folder name. Make it relatively unique to this site.'),
+  );
+  $form['site_config']['beast_initial_keyword_weight'] = array(  
+    '#type'       => 'textfield',
+    '#title'      => t('Intial keyword weight'),
+    '#default_value'   => variable_get('beast_initial_keyword_weight', 50),
+    '#description'    => t('Initial weight to give keywords added to the nodes.'),
+  );
+
+  if (!variable_get('beast_resource_box', '')) variable_set('beast_resource_box', _beast_default_values('resource_spintax'));
+  $form['site_config']['beast_resource_box'] = array(
+    '#type'       => 'textarea',
+    '#title'      => t('Generated Spintax Resource Box'),
+    '#default_value'   => variable_get('beast_resource_box', ''),
+    '#description'    => t('A spinning default resource box.'),
+  ); 
+  
+  //=========================================== 
+  $form['rss'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('RSS and Podcast Fields'),
+      '#description'   => t('Set Main Podcast Fields (separate from audiopush podcast)'),
+      '#collapsible'    => TRUE,
+      '#collapsed'      => TRUE,
+    );
+  $form['#attributes']['enctype'] = "multipart/form-data";
+  $form['#validate'][] = 'beast_upload_podcast_image_validate';
+  
+  $image_path = variable_get('beast_podcast_image', '');
+  if (file_exists(drupal_realpath($image_path))) {  
+    $image_thumbnail =  theme('image_style', array(
+     'style_name' => '144x144', 'path' => $image_path, 
+     'alt' => 'Feed Image', 'title' => 'Feed Image', 
+     'attributes' => array('style' => 'float:right; margin-top:-40px;')
+    ));
+  }
+  else $image_path = ''; 
+  $form['rss']['beast_podcast_image_upload'] = array(
+    '#type'       => 'file',
+    '#title'      => t('Upload image for podcast, should be at least 600px'),
+    '#prefix'     => $image_thumbnail,
+    '#description'   => $image_path,
+    '#size'  => 40,
+  );
+
+  if (!variable_get('beast_rss_body_header', '')) variable_set('beast_rss_body_header', _beast_default_values('rss_header'));
+  $form['rss']['beast_rss_body_header'] = array(
+    '#type'       => 'textarea',
+    '#title'      => t('Syndicated Article Header'),
+    '#default_value'   => variable_get('beast_rss_body_header', ''),
+    '#description'    => t('When articles are syndicated, we stick a header with links etc. at the beginning to fetch more traffic.'),
+    '#attributes'   => array('style' => 'clear:both;'),
+  );
+
+
+  if (!variable_get('beast_podcast_title','')) variable_set('beast_podcast_title', _beast_title_case(variable_get('site_name', '') . ' Audio feed'));
+  $form['rss']['beast_podcast_title'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Podcast Title'),
+    '#default_value'   =>  _beast_title_case(variable_get('beast_podcast_title', variable_get('site_name', '') . ' audio podcast')),
+  );
+
+  if (!variable_get('beast_rss_title','')) variable_set('beast_rss_title', _beast_title_case(variable_get('site_name', '') . ' RSS feed'));
+  $form['rss']['beast_rss_title'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('RSS Title'),
+    '#default_value' =>  _beast_title_case(variable_get('beast_rss_title', variable_get('site_name', '') . ' RSS feed')),
+  );
+
+  if (!variable_get('beast_podcast_description','')) variable_set('beast_podcast_description', 
+    _beast_title_case('Audio Feed of ' . variable_get('site_slogan', '') . ' from ' . $GLOBALS['base_url'])); 
+  $form['rss']['beast_podcast_description'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Podcast Description'),
+    '#default_value'   => variable_get('beast_podcast_description', ''),
+  );
+   
+  if (!variable_get('beast_rss_description','')) variable_set('beast_rss_description', 
+    _beast_title_case('RSS Feed of ' . variable_get('site_slogan', '') . ' from ' . $GLOBALS['base_url'])); 
+  $form['rss']['beast_rss_description'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('RSS Description'),
+    '#default_value'   => variable_get('beast_rss_description', ''),
+  );
+
+  if (!variable_get('beast_site_url', '')) variable_set('beast_site_url', $GLOBALS['base_url']);
+  $form['rss']['beast_site_url'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('This Site URL'),
+    '#default_value'   => variable_get('beast_site_url', ''),
+  );
+
+  if (!variable_get('beast_site_description', '')) variable_set('beast_site_description', variable_get('site_slogan', ''));
+  $form['rss']['beast_site_description'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Podcast Site Description'),
+    '#default_value'   => variable_get('beast_site_description', ''), // user slogan
+  ); 
+
+  $form['rss']['beast_language'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Podcast language'),
+    '#default_value'   => variable_get('beast_language', 'en-us'),
+  );
+
+  if (!variable_get('beast_site_author', '')) variable_set('beast_site_author', _beast_default_values('site_author'));
+  $form['rss']['beast_site_author'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Podcast webmaster name'),
+    '#default_value'   => variable_get('beast_site_author', ''),
+  );
+
+  if (!variable_get('beast_email', '')) variable_set('beast_email', variable_get('site_mail', ''));
+  $form['rss']['beast_email'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Podcast webmaster email'),
+    '#default_value'   => variable_get('beast_email', ''),
+  );
+
+
+  return system_settings_form($form);
+}
+
+/**
+ * extra submit handler to save uploaded image
+ */
+function beast_upload_podcast_image_validate($form, &$form_state) { 
+  // set podcast etc to refresh on next cron
+  variable_set('beast_rss_needs_updated', TRUE); 
+  drupal_set_message('RSS feeds will be rebuilt on next cron run. ' .
+    l('Run cron manually.', 'admin/reports/status/run-cron', array('attributes' => array('target' => '_blank'))));    
+  //drupal_set_message("<pre>". print_r($form_state['values'], true)."</pre>");    
+  $dir ='public://' . variable_get('beast_files_folder', 'files');
+  if (!file_prepare_directory($dir, TRUE)) { 
+    drupal_set_message("Error uploading file to {$dir}", 'warning'); 
+    return;  
+  }   
+  if ($file = file_save_upload('beast_podcast_image_upload', array(), $dir, FILE_EXISTS_REPLACE)) { 
+    //$form_state['#values']['beast_podcast_image'] = $file->filepath; 
+    variable_set('beast_podcast_image_fid', $file->fid);
+    variable_set('beast_podcast_image', $file->uri);
+    drupal_set_message("Saved file to {$file->uri}");
+    $file->status = FILE_STATUS_PERMANENT;
+    $file = file_save($file);
+    // drupal_set_message("Processed upload to $dir"); 
+  }
+   else drupal_set_message("Error uploading file: {$file->uir}", 'warning'); 
+}
+
+
+
+
+function beast_init() {
+  //$tags = nodewords_get();
+  //$types = variable_get('audiopush_audio_types', 'audio');
+  $site_url = $GLOBALS['base_url'];
+  $module_url = url(drupal_get_path('module', 'beast'), array('absolute' => TRUE));
+  $site_desc = variable_get('site_slogan', '');
+
+  $title = $site_desc . ', RSS Feed';
+  $url = $module_url . '/rss.xml';
+  drupal_add_html_head('<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $url . '" />', 'beast-rss-feed');
+
+  $title = $site_desc . ', Audio Podcast Feed';
+  $url = $module_url . '/podcast.xml';
+  drupal_add_html_head('<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $url . '" />', 'beast-podcast-feed');
+/*
+  $title = $site_desc . ', Video Feed';
+  $url = $module_url . '/videocast.xml';
+  drupal_add_html_head('<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $url . '" />', 'beast-videocast-feed');
+*/
+}
+
+
+
+
+function beast_show_rss($type='rss') {  
+  $fields = _beast_rss_fields($type, $filepath, $rss_url);  
+  require_once('beast_rsstools.class.php'); 
+  $xml = beast_rsstools::rss_xml($fields);   
+  // add xml headers for the real thing
+  header("Content-Type:text/xml");
+  echo $xml;
+  exit;
+}
+
+
+function beast_spintax_largeblock($text) { 
+  $lines = explode("\n", $text); 
+  foreach ($lines as $line) if (strlen(trim($line))) {
+    $spun[] = beast_spintax_filter(trim($line));    
+  }
+  return implode("\n\n", $spun) ;
+}
+
+
+function _beast_rss_fields($type, &$filepath, &$rss_url) {  
+  // randomization to allow up to 500 different randomized result sets
+ /* srand(ip2long($_SERVER['SERVER_ADDR']));
+  $key = rand(1,500);
+  srand($key);  */
+   
+  // generate fields by querying views
+  $data = views_get_view_result('syndicated_content', 'page');
+    
+  // build fields  
+  $img_file = file_load(variable_get('beast_podcast_image_fid', 0));  
+  $img144 = _beast_image_style_info($img_file->uri, '144x144');  
+   
+  $fields = array (
+     'rss_title' =>  variable_get('beast_rss_title', ''), //ucwords(variable_get('site_name', '')) . ' RSS Feed', 
+     'rss_description' => variable_get('beast_rss_description',''), 
+     'site_url' => variable_get('beast_site_url', ''), 
+     'language' => variable_get('beast_language', 'en-us'), 
+     'copyright' => 'Copyright ' .  $_SERVER['SERVER_NAME'] . ', ' . date('Y', strtotime('-4 year')) . ' - ' . date('Y'),  
+     'rss_url' => "http://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'],
+      // image
+     'image_144' => $img144['url'],
+     'logo_image_width' => $img144['width'],
+     'logo_image_height' => $img144['height'],  
+     'rss_lastbuild_date' => date('D, d M Y H:i:s T'),
+     'site_author' => variable_get('beast_site_author', ''),
+     'site_keywords' => '',  
+   ); 
+   foreach ($data as $n) {   
+    $path = drupal_lookup_path('alias', 'node/'. $n->nid);
+    $page_url =  url(drupal_lookup_path('alias', 'node/'. $n->nid), array('absolute' => TRUE)); 
+    $page_url_short =  beast_shorten_url($page_url);
+    $product = $n->field_field_related_product[0]['raw']['node'];
+    $product->url = url(drupal_lookup_path('alias', 'node/' . $product->nid), array('absolute' => TRUE));
+    $product->url_short = beast_shorten_url($product->url);
+    $author = user_load($n->_field_data['nid']['entity']->uid); 
+    
+    $initial_keywords = explode(',', _beast_top_tokens($n->field_field_initial_keywords[0]['raw']['value'], 10));
+    if (module_exists('kwgoals')) {
+      
+      
+    }
+    
+    //echo "<pre>". print_r($author, true) ."</pre>"; exit;
+      
+    if ($body = $n->field_field_spintax_body[0][raw][value]) {  
+      $body = beast_spintax_largeblock($body);
+    } else $body = $n->field_body[0][raw][value];
+    
+    if ($title = $n->field_field_spintax_title[0][raw][value] ) {  
+      $title = beast_spintax_largeblock($title);
+    } else  $title = $n->node_title;
+     
+    
+    // [author-name] contributes to [page-link]. More on this topic can be found at [page-link]. Find more here:  [product-link] 
+    $header = _beast_applytemplate(variable_get('beast_rss_body_header', ''), array(
+      'author-name' => _beast_title_case($author->name),
+      'site-link' => l($_SERVER['SERVER_NAME'], beast_shorten_url('http://'.$_SERVER['SERVER_NAME'])),
+      'page-link' => l($title, $page_url_short),
+      'product-link' => l($product->title, $product->url_short), 
+    )); 
+    $body = $header . "\n\n" . $body;
+    
+    if ($resource = $n->field_spintax_title[0][raw][value] ) {  
+      $resource = beast_spintax_largeblock($resource);
+    } else $resource =  '' ;
+      
+        // add markdown
+    if (module_exists('markdown')) $body = _filter_markdown($body, '');   
+    
+    $allowed_tags = array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 
+      'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'p', 'h3', 'h2', 'h1', 'b', 'i');
+    $body = filter_xss($body, $allowed_tags); 
+     
+    // add keywords
+    if (module_exists('blink')) {
+      include_once(drupal_get_path('module', 'blink') . '/blink_markup.inc');
+      $body = blink_filter_keywords($body, $n->nid);  
+    }
+    
+    // now body needs markdown and blink
+    // now add rss header and resource footer 
+    $title = $n->field_spintax_title[0][raw][value] ? $n->field_spintax_title[0][raw][value] : $n->node_title;
+    
+    $item = array(
+      'node_title' => $title,
+      'node_description' => $body,
+      'page_url' => $page_url,
+      'pubdate' => date('D, d M Y H:i:s T', $n->node_changed),
+      'node_teaser' => $n->node_title, 
+      'node_keywords' => $n->field_field_initial_keywords[0][raw][safe_value], 
+    );
+    $fields['items'][] = $item;  
+   }  
+   //echo "<pre>".  print_r($fields, true) ."</pre>"; exit; 
+   return $fields;
+}
+
+/*
+* This function pregenerates ImageCache images
+* to give access to the file metadata
+* @param $vars
+*/
+function _beast_image_style_info($src_uri, $style_name) {   
+  $dest_uri = image_style_path($style_name, $src_uri); 
+  $dest_path = drupal_realpath($dest_uri);
+  $src_path = drupal_realpath($src_uri);
+  if (!file_exists($src_path) || !$style_name) return;
+  if (!file_exists($dest_uri)) { 
+    $style = image_style_load($style_name);
+    if (!image_style_create_derivative($style, $src_path, $dest_uri)) return; 
+  }
+  // derivative image exists, get info
+  $info = array_merge(image_get_info($dest_uri), array(
+    'src' => $src_uri,
+    'uri' => $dest_uri,
+    'url' => image_style_url($style_name, $src_uri),
+    'path' => $dest_path,
+  )); 
+  return $info;
+} 
+
+ 
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function beast_spintax_filter($text) {
+  preg_match('#\{(.+?)\}#is', $text, $m);
+  if (empty($m)) return $text; 
+  $t = $m[1];
+  if (strpos($t, '{') !== FALSE) $t = substr($t, strrpos($t, '{') + 1); 
+  $parts = explode("|", $t);
+  $text = preg_replace("+\{" . preg_quote($t) . "\}+is", $parts[array_rand($parts)], $text, 1);
+  return beast_spintax_filter($text);
+}
+
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function _beast_default_values($item = '') {
+  switch ($item) {
+    case 'rss_header':
+      $spintax = '[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [node-link]. [author-name] also contributed to [product-link] ';
+      return beast_spintax_filter($spintax);
+      break;
+    case 'resource_spintax':
+      $spintax = '[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [node-link]. [author-name] also contributed to [product-link]';
+      return $spintax; // don't spin this as we need a spintax default
+      break;
+    case 'site_author':
+      $spintax = '{Jack|Cooper|Oliver|Noah|Thomas|Lucas|Lachlan|William|Jackson|Charlie} ' .
+    '{Cook|Reed|Morgan|Bell|Morris|Sanchez|Collins|Edwards|Parker|Evans|Campbell|James|Watson|Ward|Brooks|Sanders}';
+      return beast_spintax_filter($spintax);
+      break;
+  }
+}
+
+function _beast_keywords_to_categories($keywords) {
+    $list = explode(',',$keywords);
+    if ($list) foreach ($list as $kw) $categories .= '       <category>'. trim(htmlspecialchars($kw, ENT_QUOTES, 'UTF-8')) ."</category>\n";
+    return $categories;
+}
+
+function _beast_title_case($title) {
+  // Our array of 'small words' which shouldn't be capitalised if
+  // they aren't the first word. Add your own words to taste.
+  $smallwordsarray = array('of', 'a', 'the', 'and', 'an', 'or', 'nor', 'but', 'is', 'if', 'then', 'else', 'when',  'at', 'from', 'by', 'on', 'off', 'for', 'in', 'out', 'over', 'to', 'into', 'with' );
+  // Split the string into separate words
+  $words = explode(' ', $title);
+  foreach ($words as $key    => $word) {
+    // If this word is the first, or it's not one of our small words, capitalise it
+    // with ucwords().
+    if ($key == 0 or !in_array($word, $smallwordsarray) and !(substr($word, 0, 4) == 'http')) {
+      $words[$key] = ucwords($word);
+    }
+  }
+  // Join the words back into a string
+  $newtitle = implode(' ', $words);
+  return $newtitle;
+}
+
+function _beast_applytemplate($template, $array) {
+  foreach ($array as $item    => $value) {
+    $template = str_replace("[$item]", $value, $template);
+  }
+  return $template;
+}
+ 
+function _beast_duration_format($secs) {
+  $vals = array(
+      'h'   => $secs / 3600 % 24,
+      'm'   => $secs / 60 % 60,
+      's'   => $secs % 60
+  );
+  $ret = array();
+  $added = FALSE;
+  foreach ($vals as $k    => $v) {
+    if ($v > 0 || $added) {
+      $added = TRUE;
+      $ret[] = substr('00' . $v, -2);
+    }
+  }
+  return implode(':', $ret);
+}
+
+function _beast_top_tokens($tokens, $count = 1) {
+  $list = explode(',', $tokens);
+  if ($list) {
+    foreach ($list as $kw) {
+      if (!empty($kw)) {
+        $kw = trim(strtolower($kw));
+        $newlist[$kw] = $kw;
+        if (count($newlist) >= $count) {
+          break;
+        }
+      }
+    }
+  }
+  if ($newlist) {
+    return implode(',', $newlist);
+  }
+}
+ 
+function beast_shorten_url($long_url, $nid = 0) {
+  // requires shorten module to be set up
+  if (!module_exists('shorten')) return $long_url;
+  // add others to check for short url or put this in a function
+  if (!strpos($long_url, '://'.$_SERVER['SERVER_NAME'])) return $long_url; 
+  /*
+  if ($nid) 
+    $short_url = db_query('SELECT short_url FROM {koc_shorturl} WHERE nid = :nid', array(':nid' => $nid))->fetchField();
+  else {
+    $short_url = db_query('SELECT short_url FROM {koc_shorturl} WHERE long_url = :long_url', array(':long_url' => $long_url))->fetchField();
+  } 
+  if (!$short_url && ($short_url = shorten_url($long_url))) {
+    // TODO Please convert this statement to the D7 database API syntax.
+    // db_query('INSERT INTO {koc_shorturl} SET nid=%d, short_url="%s", long_url="%s"', $nid, $short_url, $long_url) 
+    $row  = array('nid' => $nid, 'short_url' => $short_url, 'long_url' => $long_url);
+    drupal_write_record('koc_shorturl', $row); 
+  }*/
+  
+  $short_url = shorten_url($long_url);
+  return $short_url;
+}
+
+

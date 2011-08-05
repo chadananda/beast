@@ -1,0 +1,18 @@
+
+div.koc_field {margin:0px; padding:5px; border: 1px solid silver; margin-bottom:15px;
+ background-color: #F5F5F5;
+}
+.koc_field h4 {margin-bottom:0; font-style:italic; font-weight:bold; border-bottom: 1px solid silver;}
+.koc_field table, .koc_field div.form-item  {margin:0;}
+
+.koc_field td input {width: 99%;}
+.koc_field td.title {width: 30%;}
+.koc_field td.url, .koc_field td.kw {width: 20%;} 
+
+#edit-koc-spintax-title {height: 30px; width: 98.3%;}
+#edit-koc-spintax-summary {height: 80px; width: 98.3%;}
+#edit-koc-spintax-body {height: 200px; width: 98.3%;}
+#edit-koc-spintax-resource {height: 80px; width: 98.3%;}
+
+#rss_image_preview {float:right; margin-top:-36px;}
+
