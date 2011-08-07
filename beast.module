@@ -193,11 +193,11 @@ function beast_admin_settings_form($form, &$form_state) {
     '#default_value'   => variable_get('beast_site_author', ''),
   );
 
-  if (!variable_get('beast_email', '')) variable_set('beast_email', variable_get('site_mail', ''));
-  $form['rss']['beast_email'] = array(
+  if (!variable_get('beast_rss_email', '')) variable_set('beast_rss_email', variable_get('site_mail', ''));
+  $form['rss']['beast_rss_email'] = array(
     '#type'       => 'textfield',
     '#title'      => t('Podcast webmaster email'),
-    '#default_value'   => variable_get('beast_email', ''),
+    '#default_value'   => variable_get('beast_rss_email', ''),
   );
 
 
@@ -262,7 +262,7 @@ function beast_show_rss($type='rss') {
   require_once('beast_rsstools.class.php'); 
   $xml = beast_rsstools::rss_xml($fields);   
   // add xml headers for the real thing
-  header("Content-Type:text/xml");
+  header("Content-Type:application/rss+xml");
   echo $xml;
   exit;
 }
@@ -303,8 +303,11 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
      'logo_image_height' => $img144['height'],  
      'rss_lastbuild_date' => date('D, d M Y H:i:s T'),
      'site_author' => variable_get('beast_site_author', ''),
+     'site_email' => variable_get('beast_rss_email', ''),     
      'site_keywords' => '',  
-   ); 
+   );  
+   // echo "<pre>". print_r($fields, true) ."</pre>"; exit; 
+   
    foreach ($data as $n) {   
     $path = drupal_lookup_path('alias', 'node/'. $n->nid);
     $page_url =  url(drupal_lookup_path('alias', 'node/'. $n->nid), array('absolute' => TRUE)); 
@@ -312,8 +315,7 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
     $product = $n->field_field_related_product[0]['raw']['node'];
     $product->url = url(drupal_lookup_path('alias', 'node/' . $product->nid), array('absolute' => TRUE));
     $product->url_short = beast_shorten_url($product->url);
-    $author = user_load($n->_field_data['nid']['entity']->uid); 
-    
+    $author = user_load($n->_field_data['nid']['entity']->uid);  
     $initial_keywords = explode(',', _beast_top_tokens($n->field_field_initial_keywords[0]['raw']['value'], 10));
     if (module_exists('kwgoals')) {
       
@@ -344,18 +346,15 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
       $resource = beast_spintax_largeblock($resource);
     } else $resource =  '' ;
       
-        // add markdown
+    // format markdown
     if (module_exists('markdown')) $body = _filter_markdown($body, '');   
     
-    $allowed_tags = array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 
-      'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'p', 'h3', 'h2', 'h1', 'b', 'i');
-    $body = filter_xss($body, $allowed_tags); 
+    // filter out everything not allowed in RSS 
+    $body = filter_xss($body, array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 
+      'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'p', 'h3', 'h2', 'h1', 'b', 'i'));  
      
     // add keywords
-    if (module_exists('blink')) {
-      include_once(drupal_get_path('module', 'blink') . '/blink_markup.inc');
-      $body = blink_filter_keywords($body, $n->nid);  
-    }
+    if (module_exists('blink')) $body = blink_markup_text($body, $n->nid);  
     
     // now body needs markdown and blink
     // now add rss header and resource footer 
