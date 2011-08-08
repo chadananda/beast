@@ -18,7 +18,7 @@ function beast_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('administer site configuration'),
    // 'file' => 'koc.admin.inc',
-    'weight' => -20,
+    'weight' => -25,
     'type' => MENU_NORMAL_ITEM,
   );
   $items['admin/config/development/beast/feed-settings'] = array(
@@ -44,22 +44,103 @@ function beast_menu() {
 }
 
 /**
- * Implements hook_filter_info().
- 
-function beast_filter_info() {
-  $filters[''] = array(
-    'title' => t('Pirate filter'),
-    'description' => t('Ah, Squiddy! I got nothing against ye. I just heard there was gold in yer belly. Ha ha har, ha ha ha har!'),
-    'process callback' => 'pirate_filter_process',
-    'settings callback' => 'pirate_filter_settings',
-    'default settings' => array(
-      'pirate_display_tip' => 1,
-    ),
-    'tips callback' => 'pirate_filter_tips',
-  );
-  return $filters;
-}*/
+ * Implements hook_menu().
+ */
+function beast_cron() {  
+  
+  
+  // update keywords in blink daily 
+  if (variable_get('beast_last_blink_update', 0) < strtotime('-1 hour')) { 
+    beast_update_blink_initial_keywords_cronjob();
+    variable_set('beast_last_blink_update', REQUEST_TIME);
+  }
+}
 
+
+
+
+/**
+ * @todo Please document this function.
+ * @see http://drupal.org/node/1354
+ */
+function beast_update_blink_initial_keywords_cronjob() {  
+  if (!module_exists('blink')) return; 
+  $source = "initial-keywords";
+  variable_set("{$source}_blink_readonly", TRUE);
+  variable_set("{$source}_blink_weight", -5);
+  variable_set("{$source}_blink_description", t('("beast" module) These are "best guess" or "early target" keywords drawn from the "Initial Keywords" field in syndicated content and affiliated products. Note: if KWGOALS module is enabled, any keywords in the KWGOALS list will be removed from this list automatically.')); 
+  
+  // remove old beast goals
+  //$beast_goals = blink_get_keyword_goals('beast'); // returns full record array
+  //foreach ($beast_goals as $beast_goal) blink_delete_keyword_goal($beast_goal, 'beast'); 
+  
+  // get list of goals from blink
+  $beast_goals = blink_get_keyword_goals($source); // returns full record array
+  drupal_set_message(count($beast_goals) . " {$source} goals");
+  // build index by keyword group, since initial_keywords are not unique
+  if ($beast_goals) foreach ($beast_goals as $goal) $beast_index[$goal['kw']][] = $goal;
+  
+  // gather up list of indexed kwgoal links
+  $kwgoals = blink_get_keyword_goals('best-google-hits'); // returns full record array
+  drupal_set_message(count($kwgoals) . " best-google-hits goals");
+  // build index by keyword, since kwgoals keywords are unique
+  if ($kwgoals) foreach ($kwgoals as $goal) $kwgoals_index[$goal['kw']] = $goal; 
+
+  // pull out list of all initial_keyword field, using EFQ. Hope this is fast, sure miss SQL!
+  $query = new EntityFieldQuery();
+  $entities = $query->entityCondition('entity_type', 'node')
+                  //  ->entityCondition('bundle', array('article', 'affilite_product'), 'IN')
+                    ->fieldCondition('field_initial_keywords')
+                    ->propertyCondition('status', 1)  
+                    ->execute(); 
+  $nodes = node_load_multiple(array_keys($entities['node'])); // ouch, all for just nid and a single field
+  
+  // gather up list of all keywords with associated nid  
+  if (count($nodes)) foreach ($nodes as $node) {
+    if ($initial_keywords = $node->field_initial_keywords['und'][0]['safe_value']) {
+      $kws = explode(',', $initial_keywords);
+      foreach ($kws as $kw) $node_kws[strtolower(trim($kw))][$node->nid] = $node->nid; 
+    }
+  } 
+  // Loop through current node keywords and delete them if they are in kwgoals list
+  if ($node_kws) foreach ($node_kws as $kw => $nids) {
+    if (isset($kwgoals_index[$kw])) {
+      // if in beast blink list, remove all matching goals from blink
+      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) blink_delete_keyword_goal($goal, 'beast'); 
+      // remove from blink list
+      unset($node_kws[$kw]);
+      drupal_set_message("Removed keyword '{$kw}' goal from {$source} list because it was found in best-google-hits");
+    }
+  }
+  // loop through current goals and delete them if they are not in current keywords
+  if (isset($beast_goals)) foreach ($beast_goals as $beast_goal) {
+    // if goal kw and url not found in keywords list
+    $kw = $beast_goal['kw'];
+    $url = $beast_goal['url'];
+    $delete = TRUE;
+    // we don't delete if we can locate a keyword/url pair matching this goal
+    if ($node_kws[$kw]) foreach ($node_kws[$kw] as $nid)
+      if (url('node/' . $nid, array('absolute' => TRUE)) == $url) $delete = FALSE;   
+    if ($delete) {
+      blink_delete_keyword_goal($beast_goal, $source);
+      drupal_set_message("Deleted {$source} goal as a match was found in best-google-hits '{$kw}' '{$url}'");
+    }
+  }
+  // loop through the current node keywords and add them if they are not in the current goals
+  if ($node_kws) foreach ($node_kws as $kw => $nids) {
+    foreach ($nids as $nid) {
+      $found = FALSE;
+      $url =  url('node/' . $nid, array('absolute' => TRUE));
+      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) if ($goal['url'] == $url) $found = TRUE;  
+      if (!$found) {
+        blink_add_keyword_goal($kw, $url, variable_get('beast_initial_keyword_weight', 50), $source);
+        drupal_set_message("Added new {$source} goal '{$kw}' '{$url}'");
+      }
+    } 
+  }
+}
+
+ 
 
 /**
  *  
@@ -67,6 +148,12 @@ function beast_filter_info() {
 function beast_admin_settings_form($form, &$form_state) {
   // beast_update_blink_goals_cronjob(); // for testing 
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_forms.css'); 
+  
+  
+  beast_update_blink_initial_keywords_cronjob();  // for testing porpoises
+  
+  
+  
   
   //=========================================== 
   $form['site_config'] = array(
@@ -397,9 +484,7 @@ function _beast_image_style_info($src_uri, $style_name) {
   )); 
   return $info;
 } 
-
  
-
 /**
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
