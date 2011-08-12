@@ -34,9 +34,17 @@ function beast_menu() {
   
  $items['new_rss.xml'] = array(
     'page callback' => 'beast_show_rss',
-   // 'page arguments' => array('rss'),
+    'page arguments' => array('rss'),
     'access callback' => TRUE,
   //  'file' => 'koc.admin.inc',
+    'type'  => MENU_CALLBACK,
+ );
+ 
+  $items['new_podcast.xml'] = array(
+    'page callback' => 'beast_show_rss',
+    'page arguments' => array('podcast'),
+    'access callback' => TRUE,
+     //  'file' => 'koc.admin.inc',
     'type'  => MENU_CALLBACK,
  );
   
@@ -133,7 +141,7 @@ function beast_update_blink_initial_keywords_cronjob() {
       $url =  url('node/' . $nid, array('absolute' => TRUE));
       if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) if ($goal['url'] == $url) $found = TRUE;  
       if (!$found) {
-        blink_add_keyword_goal($kw, $url, variable_get('beast_initial_keyword_weight', 50), $source);
+        blink_add_keyword_goal($kw, $url, variable_get('beast_initial_keyword_weight', 1), $source);
         drupal_set_message("Added new {$source} goal '{$kw}' '{$url}'");
       }
     } 
@@ -148,12 +156,7 @@ function beast_update_blink_initial_keywords_cronjob() {
 function beast_admin_settings_form($form, &$form_state) {
   // beast_update_blink_goals_cronjob(); // for testing 
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_forms.css'); 
-  
-  
-  beast_update_blink_initial_keywords_cronjob();  // for testing porpoises
-  
-  
-  
+  // beast_update_blink_initial_keywords_cronjob();  // for testing porpoises 
   
   //=========================================== 
   $form['site_config'] = array(
@@ -173,7 +176,7 @@ function beast_admin_settings_form($form, &$form_state) {
   $form['site_config']['beast_initial_keyword_weight'] = array(  
     '#type'       => 'textfield',
     '#title'      => t('Intial keyword weight'),
-    '#default_value'   => variable_get('beast_initial_keyword_weight', 50),
+    '#default_value'   => variable_get('beast_initial_keyword_weight', 1),
     '#description'    => t('Initial weight to give keywords added to the nodes.'),
   );
 
@@ -221,7 +224,18 @@ function beast_admin_settings_form($form, &$form_state) {
     '#description'    => t('When articles are syndicated, we stick a header with links etc. at the beginning to fetch more traffic.'),
     '#attributes'   => array('style' => 'clear:both;'),
   );
-
+  
+    include_once('itunes_categories.php.inc'); 
+    $form['rss']['beast_podcast_itunes_categories'] = array(
+    '#type'       => 'select',
+    '#title'      => t('Itunes Categories'),
+    '#multiple'   => TRUE,
+    '#default_value'   => variable_get('beast_podcast_itunes_categories', ''),
+    '#description'    => t('Select one or more categories for iTunes store.'), 
+    '#options'     => $itunes_categories,
+    '#size'      => 15,
+  );
+   
 
   if (!variable_get('beast_podcast_title','')) variable_set('beast_podcast_title', _beast_title_case(variable_get('site_name', '') . ' Audio feed'));
   $form['rss']['beast_podcast_title'] = array(
@@ -347,7 +361,8 @@ function beast_init() {
 function beast_show_rss($type='rss') {  
   $fields = _beast_rss_fields($type, $filepath, $rss_url);  
   require_once('beast_rsstools.class.php'); 
-  $xml = beast_rsstools::rss_xml($fields);   
+  if ($type == 'rss') $xml = beast_rsstools::rss_xml($fields);   
+   else if ($type == 'podcast') $xml = beast_rsstools::podcast_xml($fields);  
   // add xml headers for the real thing
   header("Content-Type:application/rss+xml");
   echo $xml;
@@ -362,7 +377,7 @@ function beast_spintax_largeblock($text) {
   }
   return implode("\n\n", $spun) ;
 }
-
+ 
 
 function _beast_rss_fields($type, &$filepath, &$rss_url) {  
   // randomization to allow up to 500 different randomized result sets
@@ -372,30 +387,66 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
    
   // generate fields by querying views
   $data = views_get_view_result('syndicated_content', 'page');
+  //echo "<pre>".print_r($data, true)."</pre>"; exit;
     
   // build fields  
   $img_file = file_load(variable_get('beast_podcast_image_fid', 0));  
   $img144 = _beast_image_style_info($img_file->uri, '144x144');  
+  $img600 = _beast_image_style_info($img_file->uri, '600x600');   
+  
+  // top site keywords - cannot exceed 255 characters in length
+  if (module_exists('blink')) {
+    $top = blink_top_links(20); 
+    foreach ($top as $kw) if (($keywords_length + strlen($kw['kw']) +2) < 255) {
+      $list[] = $kw['kw'];
+      $keywords_length += strlen($kw['kw']) + 2;
+    }
+    $site_keywords = implode(', ', $list);  
+  }
    
+  /* if ($itunes_categories = variable_get('beast_podcast_itunes_categories', '')) {
+    echo "<pre>".print_r($itunes_categories, true)."</pre>"; exit;
+    foreach ($itunes_categories as $cat) $cats[] = '<itunes:category text="'.$cat.'" />';
+    $itunes_categories = implode("\n", $cats);    
+  } */
+  $itunes_categories = variable_get('beast_podcast_itunes_categories', '');
+   
+  $rss_url = "http://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI']; 
   $fields = array (
-     'rss_title' =>  variable_get('beast_rss_title', ''), //ucwords(variable_get('site_name', '')) . ' RSS Feed', 
+     'rss_title' =>  variable_get('beast_rss_title', ''),  
+     'podcast_title' =>  variable_get('beast_podcast_title', ''),  
      'rss_description' => variable_get('beast_rss_description',''), 
+     'podcast_description' => variable_get('beast_podcast_description',''), 
      'site_url' => variable_get('beast_site_url', ''), 
      'language' => variable_get('beast_language', 'en-us'), 
      'copyright' => 'Copyright ' .  $_SERVER['SERVER_NAME'] . ', ' . date('Y', strtotime('-4 year')) . ' - ' . date('Y'),  
-     'rss_url' => "http://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'],
+     'rss_url' => $rss_url,
       // image
      'image_144' => $img144['url'],
+     'image_600' => $img600['url'],
+     
      'logo_image_width' => $img144['width'],
      'logo_image_height' => $img144['height'],  
+     'itunes_categories' => $itunes_categories,
+     'subtitle' => '',
+     
      'rss_lastbuild_date' => date('D, d M Y H:i:s T'),
      'site_author' => variable_get('beast_site_author', ''),
      'site_email' => variable_get('beast_rss_email', ''),     
-     'site_keywords' => '',  
-   );  
-   // echo "<pre>". print_r($fields, true) ."</pre>"; exit; 
-   
-   foreach ($data as $n) {   
+     'site_keywords' => $site_keywords,  
+  );   
+  foreach ($data as $n) { 
+    $mp3_file = $n->field_field_audio[0]['raw']['uri'];
+    if (($type=='podcast') && !$mp3_file) continue;
+    
+    $mp3_info = array();
+    if($mp3_file && getid3_load()) {
+      $id3 = new getID3;
+      $mp3_info = $id3->analyze(drupal_realpath($mp3_file));
+      unset($id3);  
+      // echo "<pre>".print_r($mp3_info, true)."</pre>"; exit;
+    } 
+      
     $path = drupal_lookup_path('alias', 'node/'. $n->nid);
     $page_url =  url(drupal_lookup_path('alias', 'node/'. $n->nid), array('absolute' => TRUE)); 
     $page_url_short =  beast_shorten_url($page_url);
@@ -403,23 +454,19 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
     $product->url = url(drupal_lookup_path('alias', 'node/' . $product->nid), array('absolute' => TRUE));
     $product->url_short = beast_shorten_url($product->url);
     $author = user_load($n->_field_data['nid']['entity']->uid);  
-    $initial_keywords = explode(',', _beast_top_tokens($n->field_field_initial_keywords[0]['raw']['value'], 10));
-    if (module_exists('kwgoals')) {
-      
-      
-    }
+    $username = $author->name;
+      $username = str_replace(array('_', '-'), ' ', $username);
+      $username = _beast_title_case($username);
     
-    //echo "<pre>". print_r($author, true) ."</pre>"; exit;
-      
+    $initial_keywords = explode(',', _beast_top_tokens($n->field_field_initial_keywords[0]['raw']['value'], 10));
+    $mp3_url = file_create_url($mp3_file); 
+    $mp3_length = $n->field_field_audio[0]['raw']['filesize'];
+    $node_image_600 = _beast_image_style_info($n->field_field_image[0]['raw']['uri'], '600x600');   
+   
+    // BODY: is a spun version of body if possible (header to be added later
     if ($body = $n->field_field_spintax_body[0][raw][value]) {  
       $body = beast_spintax_largeblock($body);
     } else $body = $n->field_body[0][raw][value];
-    
-    if ($title = $n->field_field_spintax_title[0][raw][value] ) {  
-      $title = beast_spintax_largeblock($title);
-    } else  $title = $n->node_title;
-     
-    
     // [author-name] contributes to [page-link]. More on this topic can be found at [page-link]. Find more here:  [product-link] 
     $header = _beast_applytemplate(variable_get('beast_rss_body_header', ''), array(
       'author-name' => _beast_title_case($author->name),
@@ -427,38 +474,73 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
       'page-link' => l($title, $page_url_short),
       'product-link' => l($product->title, $product->url_short), 
     )); 
-    $body = $header . "\n\n" . $body;
+    $body = $header . "\n\n" . $body;   
+    // add markdown formatting
+    if (module_exists('markdown')) $body = _filter_markdown($body, '');    
+    // filter out everything not allowed in RSS 
+    $body = filter_xss($body, array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 
+      'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'p', 'h3', 'h2', 'h1', 'b', 'i')); 
+    // add keyword links
+    if (module_exists('blink')) $body = blink_markup_text($body, $n->nid);       
+       
     
+    // TITLE: is a spun version if possible
+    if ($title = $n->field_field_spintax_title[0][raw][value] ) {  
+      $title = beast_spintax_largeblock($title);
+    } else  $title = $n->node_title;   
+       
+    // SUBTITLE: is a second spun title, or old title with prefix  
+    if ($subtitle = $n->field_field_spintax_title[0][raw][value] ) {  
+      $subtitle = beast_spintax_largeblock($subtitle);
+    } else $subtitle = "Podcast Episode: " .$title;
+ 
+      
+    // RESOURCE: box when approriate (when?)
     if ($resource = $n->field_spintax_title[0][raw][value] ) {  
       $resource = beast_spintax_largeblock($resource);
     } else $resource =  '' ;
-      
-    // format markdown
-    if (module_exists('markdown')) $body = _filter_markdown($body, '');   
+            
+    // SITE KEYWORDS: top keywords from blink cannot exceed 255 characters in length 
+    $keywords = array(); $keywords_length = 0; $node_keywords = '';
+    if (module_exists('blink')) {
+      $top_page_keywords = blink_top_links(30, $page_url); 
+      foreach ($top_page_keywords as $kw) if (($keywords_length + strlen($kw['kw'])) < 250) {
+        $keywords[] = $kw['kw'];
+        $keywords_length += strlen($kw['kw']) + 2;
+      }  
+      if ($keywords_length < 250) {
+        $top_keywords = blink_top_links(30); 
+        foreach ($top_keywords as $kw) if (($keywords_length + strlen($kw['kw'])) < 250) {
+          $keywords[] = $kw['kw'];
+          $keywords_length += strlen($kw['kw']) + 2;
+        }  
+      }
+      $node_keywords = implode(', ', $keywords); // that's where the +2 comes from
+    } 
     
-    // filter out everything not allowed in RSS 
-    $body = filter_xss($body, array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 
-      'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'p', 'h3', 'h2', 'h1', 'b', 'i'));  
-     
-    // add keywords
-    if (module_exists('blink')) $body = blink_markup_text($body, $n->nid);  
-    
-    // now body needs markdown and blink
-    // now add rss header and resource footer 
-    $title = $n->field_spintax_title[0][raw][value] ? $n->field_spintax_title[0][raw][value] : $n->node_title;
-    
+    // put all items into an array to be formatted
     $item = array(
       'node_title' => $title,
+      'node_subtitle' => $subtitle,
       'node_description' => $body,
       'page_url' => $page_url,
       'pubdate' => date('D, d M Y H:i:s T', $n->node_changed),
       'node_teaser' => $n->node_title, 
-      'node_keywords' => $n->field_field_initial_keywords[0][raw][safe_value], 
+      'node_keywords' => $node_keywords, 
+      'node_summary' => '',
+      'node_image_600' => $node_image_600['url'],
+      'mp3_file' => $mp3_file,
+      'mp3_url' => $mp3_url,
+      'mp3_length' => $mp3_length,
+      'mp3_duration' => $mp3_info['playtime_string'],
+      'mp3_mime' => $mp3_info['mime_type'],
+      'mp3_author' => $username,
+      'mp3_guid' => $page_url,
     );
     $fields['items'][] = $item;  
-   }  
+  }  
    //echo "<pre>".  print_r($fields, true) ."</pre>"; exit; 
-   return $fields;
+  return $fields;
 }
 
 /*
@@ -484,6 +566,7 @@ function _beast_image_style_info($src_uri, $style_name) {
   )); 
   return $info;
 } 
+ 
  
 /**
  * @todo Please document this function.
@@ -587,12 +670,20 @@ function _beast_top_tokens($tokens, $count = 1) {
     return implode(',', $newlist);
   }
 }
+
+
  
 function beast_shorten_url($long_url, $nid = 0) {
   // requires shorten module to be set up
   if (!module_exists('shorten')) return $long_url;
   // add others to check for short url or put this in a function
   if (!strpos($long_url, '://'.$_SERVER['SERVER_NAME'])) return $long_url; 
+  
+  // figure out how to randomize this url shortener
+  
+  
+  
+  
   /*
   if ($nid) 
     $short_url = db_query('SELECT short_url FROM {koc_shorturl} WHERE nid = :nid', array(':nid' => $nid))->fetchField();

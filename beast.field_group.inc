@@ -22,17 +22,19 @@ function beast_field_group_info() {
     'label' => 'Media',
     'weight' => '4',
     'children' => array(
-      0 => 'field_image',
-      1 => 'field_audio',
-      2 => 'field_video',
+      0 => 'field_video',
+      1 => 'field_image',
+      2 => 'field_audio',
     ),
     'format_type' => 'tab',
     'format_settings' => array(
-      'formatter' => 'closed',
+      'label' => 'Media',
       'instance_settings' => array(
-        'classes' => '',
         'required_fields' => 1,
+        'classes' => '',
+        'description' => '',
       ),
+      'formatter' => 'open',
     ),
   );
   $export['group_article_media|node|article|form'] = $field_group;

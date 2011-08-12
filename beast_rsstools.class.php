@@ -83,18 +83,17 @@ class beast_rsstools {
   function podcast_xml($fields) { 
 
     $item_template = "\n\n". '  <item>
-    <title><![CDATA[ [node_title] ]]></title>
+     <title><![CDATA[ [node_title] ]]></title>
      <description><![CDATA[ [node_description] ]]></description>
      <link>[page_url]</link>
      <pubDate>[pubdate]</pubDate>
-     <enclosure url="[mp3_url]" length="[mp3_length]" type="audio/mpeg" />
+     <enclosure url="[mp3_url]" length="[mp3_length]" type="[mp3_mime]" />  
      <itunes:duration>[mp3_duration]</itunes:duration>
      <itunes:author>[mp3_author]</itunes:author>
-     <itunes:subtitle><![CDATA[ [node_subtitle] ]]></itunes:subtitle>
-     <itunes:summary><![CDATA[ [node_summary] ]]></itunes:summary>
+     <itunes:subtitle><![CDATA[ [node_subtitle] ]]></itunes:subtitle> 
      <itunes:keywords>[node_keywords]</itunes:keywords> 
      <itunes:image href="[node_image_600]" />
-     <guid>[mp3_url]</guid>
+     <guid>[mp3_guid]</guid>
   </item>'. "\n\n";
 
     $podcast_template = '<?xml version="1.0" encoding="UTF-8"?>
@@ -118,10 +117,9 @@ class beast_rsstools {
      <lastBuildDate>[rss_lastbuild_date]</lastBuildDate>
      <webMaster>[site_email] ([site_author])</webMaster>
 
-     <itunes:category text="[itunes_category]" />
-     <itunes:subtitle>[subtitle]</itunes:subtitle>
-     <itunes:summary><![CDATA[ [podcast_description] ]]></itunes:summary>
-     <itunes:explicit>No</itunes:explicit>
+[itunes_categories]
+ 
+     <itunes:explicit>clean</itunes:explicit>
      <itunes:keywords>[site_keywords]</itunes:keywords>
      <itunes:image href="[image_600]" />
      <itunes:owner>                              
@@ -135,6 +133,7 @@ class beast_rsstools {
     </rss>';
 
     if ($fields['items']) foreach ($fields['items'] as $item) {
+      if (!$item['mp3_file']) continue; 
       $item['node_title'] = $item['node_title'];
       $item['node_description'] = $item['node_description'] ."\n\n". $item['node_resource'];
       $item['mp3_author'] = $item['mp3_author'];
@@ -149,6 +148,7 @@ class beast_rsstools {
     $fields['site_slogan'] = $fields['site_slogan'];
     $fields['podcast_description'] = $fields['podcast_description'];
     $fields['site_keywords'] = $fields['site_keywords'];
+    $fields['itunes_categories'] = self::format_itunes_categories($fields['itunes_categories']);
 
    // finally, build full rss
    $xml = self::applytemplate($podcast_template, $fields, TRUE); 
@@ -157,7 +157,29 @@ class beast_rsstools {
  
 
 
-
+ function format_itunes_categories($categories) {
+   // organize into categories
+   foreach ($categories as $key=>$desc) {
+     if (!strpos($key, ':'))  $cats[$key][$key] = 1;
+     else {
+       list($cat, $sub) = explode(":", $key);
+       $cats[$cat][$sub] = 1;
+     }
+   }
+   // format for itunes
+   $indent = str_repeat(' ', 5);
+   foreach($cats as $cat=>$values) {
+    $cat_only = (count($values)==1) && isset($values[$cat]); 
+    if ($cat_only) $xml[] = $indent . '<itunes:category text="'. htmlentities($cat)  .'" />';
+    else {
+      $xml[] = $indent . '<itunes:category text="'. htmlentities($cat)  .'">';
+      foreach ($values as $subcat => $nonsensevalue) if ($subcat != $cat) 
+        $xml[] = $indent . '  <itunes:category text="'. htmlentities($subcat)  .'" />'; 
+      $xml[] = $indent . '</itunes:category>'; 
+    }
+   }
+   return implode("\n", $xml);   
+ }
 
 
  // tools
