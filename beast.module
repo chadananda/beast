@@ -32,40 +32,457 @@ function beast_menu() {
     'type'  => MENU_DEFAULT_LOCAL_TASK,
   );
   
- $items['new_rss.xml'] = array(
-    'page callback' => 'beast_show_rss',
-    'page arguments' => array('rss'),
-    'access callback' => TRUE,
-  //  'file' => 'koc.admin.inc',
+  
+ $path = trim(parse_url(file_create_url('public://rss'),PHP_URL_PATH), '/'); 
+ $items[$path] = array(
+    'page callback' => 'beast_show_rss', 
+    'access callback' => TRUE, 
     'type'  => MENU_CALLBACK,
  );
  
-  $items['new_podcast.xml'] = array(
-    'page callback' => 'beast_show_rss',
-    'page arguments' => array('podcast'),
-    'access callback' => TRUE,
-     //  'file' => 'koc.admin.inc',
-    'type'  => MENU_CALLBACK,
- );
+  $items['node/%node/audio'] = array(
+    'title' => 'Add Audio',
+    'page callback' => 'beast_add_audio_template',
+    'page arguments' => array(1),
+    'access callback' => 'beast_permission_add_audio',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 150,
+  );
+  
+  $items['node/%node/spintax'] = array(
+    'title' => 'Add Spintax',
+    'page callback' => 'beast_add_spintax_template',
+    'page arguments' => array(1),
+    'access callback' => 'beast_permission_add_spintax',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 155,
+  );  
+  
+  $items['node/%node/syndicate'] = array(
+    'title' => 'Syndicate',
+    'page callback' => 'beast_syndicate_template',
+    'page arguments' => array(1),
+    'access callback' => 'beast_permission_syndicate',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 175,
+  );
+  
+
   
  return $items; 
 }
+
+function beast_permission_add_audio($node) {
+  $type = ($node->type == 'article'); 
+  $access = user_access('view any unpublished content');
+  $needs_audio = count($node->field_audio) == 0;
+  if ($type && $access && $needs_audio) return TRUE;
+}
+function beast_permission_add_spintax($node) { 
+  if (!$node->type == 'article') return FALSE;
+  if (!user_access('view any unpublished content')) return FALSE;
+  // already submitted?
+  if (isset($node->field_submitted['und'][0]['value'])) { 
+    if($node->field_submitted['und'][0]['value'] > 0) return FALSE;
+  };    
+  // already has spintax fields?
+  if (isset($node->field_spintax_title['und'][0]['value']))
+    $spintax_title =  $node->field_spintax_title['und'][0]['value'];
+  if (isset($node->field_spintax_body['und'][0]['summary']))
+    $spintax_summary =  $node->field_spintax_body['und'][0]['summary'];
+  if (isset($node->field_spintax_body['und'][0]['value']))
+    $spintax_body =  $node->field_spintax_body['und'][0]['value'];
+    
+  $result = !$spintax_title || !$spintax_summary || !$spintax_body;
+  return $result;
+}
+function beast_permission_syndicate($node) {
+  if (!$node->type == 'article') return FALSE;
+  if (!user_access('view any unpublished content')) return FALSE; 
+  // needs audio?
+  if (count($node->field_audio) == 0) return FALSE;
+  // needs spintax? 
+  $has_spintax = isset($node->field_spintax_title) 
+    && isset($nodefield_spintax_body) 
+    && isset($node->field_spintax_resource); 
+  if (!$has_spintax) return FALSE; // needs spintax 
+   // already submitted?
+  if (isset($node->field_submitted['und'][0]['value']))  
+    return ($node->field_submitted['und'][0]['value'] == 0);
+  else return FALSE;     
+}
+
+function beast_add_audio_template($node) {   
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
+ 
+   $content = "<h1>Audio reading of: <i></i>\"{$node->title}\"</i></h1>"; 
+   
+   $directions = "<p> <i>Audio should be recorded in Mono at 44100 Hz, 128 kbps.</i> <br>" .
+     " The final MP3 file should be named:  &nbsp; &nbsp; <b>" .
+     drupal_get_path_alias('node/' . $node->nid) .'.mp3' .
+     "</b> </p>";
+     
+   $content .= $directions;
+   
+   
+  $template = variable_get('beast_audio_reading_template', ''); 
+  
+  $site = '<span class="replaced site">' . variable_get('site_name', '') .'</span>';   
+  $site_domain = '<span class="replaced domain">' . str_replace(
+    array('://', 'http'    , '.',     '-'), 
+    array(''   , 'H T T P ', ' DOT ', ' '), $GLOBALS['base_url']) .'</span>'; 
+    
+  // article type field
+  $field_info = field_info_field('field_content_type'); 
+  $field_key = $node->field_content_type['und'][0]['value'];
+  $field_value = $field_info['settings']['allowed_values'][$field_key]; 
+  $article_type = '<span class="replaced type">' . $field_value . '</span>';   
+  
+  if (module_exists('markdown')) $article = _filter_markdown($node->body['und'][0]['value'], ''); 
+  $article = '<div class="replaced body">' .
+    strip_tags($article, '<p><h3><ol> <li> <ul> <b> <i>') . '</div>';
+  $title = '<span class="replaced type">' . $node->title . '</span>';
+  
+  $replace = array( 
+    'site' => $site,
+    'site-url' => $site_domain,
+    'article-type' => $article_type,
+    'title' => $title,
+    'pause' => '',
+    'article' => $article,
+    'author-name' => _beast_title_case($node->name), 
+    'article-type-plural' => $article_type . 's',  
+  ); 
+  $content .= '<div class="reading_block">' . _beast_applytemplate($template, $replace) . '</div>';
+   
+  //  $content .= "<hr>";
+  //  $content .= '<div class="node_form">' . beast_node_audio_edit_form($node) . '</div>';
+    
+  //$content .= beast_node_audio_upload_form($node);
+  $content .= drupal_render(drupal_get_form('beast_add_audio_uploadform', $node, $directions));
+   
+  $content .= "<h1 style='text-align:center; width:100%'>" . 
+     l(t('Other content needing audio >>'), 'admin/needs-audio') . "</h1>";
+  
+  return $content;
+}
+function beast_add_spintax_template($node) {  
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
+  $content = "<h1>Spintax conversion of: <i></i>\"{$node->title}\"</i></h1>";  
+   $directions = "<p> <i>Convert text to spintax then submit.</i>  </p>"; 
+   $content .= $directions;
+   
+  $content .= drupal_render(drupal_get_form('beast_add_spintax_uploadform', $node, $directions)); 
+  
+  $content .= "<h1 style='text-align:center; width:100%'>" . 
+     l(t('Other content needing spintax >>'), 'admin/needs-spintax') . "</h1>";
+  
+  return $content;
+}
+function beast_syndicate_template($node) { 
+  return "<h2>Submission: {$node->title}</h2>"; 
+}
+ 
+function beast_cleanup_bodytext($text) {
+  if (!trim($text)) return '';
+  $lines = explode("\n", $text);
+  foreach ($lines as $line) if (trim($line)) $newlines[] = $line;
+  return implode("\n\n", $newlines);  
+} 
+
+function beast_add_spintax_uploadform($form, &$form_state, $node, $description) { 
+  $form['spintax_upload_form']['beast_syndicated_audio_upload_nid'] = array(
+    '#type'       => 'hidden',
+    '#value'      => $node->nid,  
+  ); 
+  
+ // title 
+ $form['spintax_upload_form_title'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Title'),  
+      '#collapsible'    => TRUE, 
+      '#collapsed'      => FALSE,
+      '#rows'   => 4,
+      '#weight'  => -5,
+  ); 
+  $form['spintax_upload_form_title']['spintax_title'] = array(
+    //'#title'   => t('Article Title'), 
+    '#type' => 'textarea',
+    '#default_value' => $node->title,
+    '#suffix' => "<div class='unspun_text title'>" . $node->title . "</div>",
+    '#required' => TRUE,
+  );  
+  
+  // summary
+  $form['spintax_upload_form_summary'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Summary'),  
+      '#collapsible'    => TRUE, 
+      '#collapsed'      => TRUE,
+      '#weight'  => -4,
+  );   
+  $summary = beast_cleanup_bodytext(strip_tags($node->body['und'][0]['summary'])); 
+  $form['spintax_upload_form_summary']['spintax_summary'] = array( 
+    '#type' => 'textarea',
+    '#default_value' => $summary,
+    '#suffix' => "<div class='unspun_text summary'>" . str_replace("\n", "<br>", $summary) . "</div>",
+    '#required' => TRUE,
+    '#rows'   => 8,
+  );  
+  
+  // body 
+  $form['spintax_upload_form_body'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Body'),  
+      '#collapsible'    => TRUE, 
+      '#collapsed'      => TRUE,
+      '#weight'  => -3,
+  ); 
+ $body = beast_cleanup_bodytext(strip_tags($node->body['und'][0]['value'])); 
+  $form['spintax_upload_form_body']['spintax_body'] = array(
+    //'#title'   => t('Article Body'), 
+    '#type' => 'textarea',
+    '#default_value' => $body,
+    '#suffix' => "<div class='unspun_text body'>" . str_replace("\n", "<br>", $body) . "</div>",
+    '#required' => TRUE,
+    '#rows'   => 30,
+  );  
+  
+  $form['spintax_upload_form']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#weight' => 5,
+  );  
+  $form['#validate'][] = 'beast_add_spintax_uploadform_validate';   
+  $form['#submit'][] = 'beast_add_spintax_uploadform_submit';    
+  return $form;  
+}
+
+function beast_validate_spintax($text, $min=5, &$error) {
+  $error ='';
+  foreach (count_chars($text, 1) as $asc=>$count) $c[chr($asc)] = $count; 
+  if (!isset($c['{']) || !isset($c['}'])) $error = t('spintax seems to have wrong curly bracket count.'); 
+  
+  elseif (($c['{'] < $min) || ($c['|'] < $min*3)) $error = t('spintax needs more spin options.'); 
+  
+  return !$error;
+}
+function beast_add_spintax_uploadform_validate($form, &$form_state) {
+  $f = $form_state['values'];  
+ 
+  if (!beast_validate_spintax($f['spintax_title'], 5, &$error))
+    form_set_error('spintax_title', 'Title: ' . $error);
+    
+  if (!beast_validate_spintax($f['spintax_summary'], 5, &$error))
+    form_set_error('spintax_summary', 'Summary: ' . $error);
+    
+  if (!beast_validate_spintax($f['spintax_body'], 15, &$error))
+    form_set_error('spintax_body', 'Body: ' . $error); 
+  
+ // $form_state['redirect'] = 'admin/needs-spintax';
+ // $form_state['redirect'] = 'node/' . arg(1); // for testing
+}
+function beast_add_spintax_uploadform_submit($form, &$form_state) {
+  $f = $form_state['values']; 
+  $node = node_load($f['beast_syndicated_audio_upload_nid']);
+  $spintax_title = $f['spintax_title'];
+  $spintax_summary = $f['spintax_summary'];
+  $spintax_body = $f['spintax_body'];
+  
+  $node->field_spintax_title['und'][0]['value'] = $spintax_title;
+  $node->field_spintax_body['und'][0]['summary'] = $spintax_summary;
+  $node->field_spintax_body['und'][0]['value'] = $spintax_body;
+  
+  node_save($node);  
+  drupal_set_message(t('Thank you. The spintax data was saved and it\'s page was removed from the list below. <br> Please proceed to the next article spinning.'));
+  drupal_goto('admin/needs-spintax');
+}
+
+
+
+
+function beast_generate_resource_box_spintax($node, $html = TRUE) {
+  /*
+[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [page-link]. [author-name] also contributed to [site-link]
+   */  
+  $site_url = $GLOBALS['base_url'];
+  $host = parse_url($site_url, PHP_URL_HOST);
+  $page_url = url('node/' . $node->nid, array('absolute' => TRUE));
+  // top goals for page
+  $top_page_goals = blink_top_goals_random(5, 5, $page_url);
+  foreach ($top_page_goals as $goal) {
+    $top_page_links[] = l($goal['kw'], $goal['url']);
+    $top_page_urls[] = $goal['url'];
+  }
+  $top_page_links_spintax = '{' . implode('|', $top_page_links) . '}';
+  $top_page_urls_spintax = '{' . implode('|', $top_page_urls) . '}';
+  // top goals for site
+  $top_site_goals = blink_top_goals_random(20, 20);  
+  foreach ($top_site_goals as $goal) {
+    $top_site_links[] = l($goal['kw'], $goal['url']);
+    $top_site_urls[] = $goal['url'];
+  }
+  $top_site_links_spintax = '{' . implode('|', $top_site_links) . '}';
+  $top_site_urls_spintax = '{' . implode('|', $top_site_urls) . '}';
+   
+  // apply template
+  $details = array(
+    'author-name' => ucwords($node->name),
+    'page-link' => $html ? $top_page_links_spintax : $top_page_urls_spintax,
+    'site-link' => $html ? $top_site_links_spintax : $top_site_urls_spintax,
+  );
+  return _beast_applytemplate(variable_get('beast_resource_box',''), $details); 
+}
+
+function beast_add_audio_uploadform($form, &$form_state, $node, $description) { 
+ $form['audio_upload_form'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Upload'), 
+      '#description'    => $description,
+      '#collapsible'    => FALSE, 
+  );  
+  $form['audio_upload_form']['beast_syndicated_audio_upload_nid'] = array(
+    '#type'       => 'hidden',
+    '#value'      => $node->nid,  
+  ); 
+  $form['audio_upload_form']['beast_syndicated_audio_upload_filename'] = array(
+    '#type'       => 'hidden',
+    '#value'      => drupal_get_path_alias('node/' . $node->nid) .'.mp3',  
+  );  
+  $form['audio_upload_form']['beast_syndicated_audio_upload'] = array(
+    '#type'       => 'file',
+    '#title'      => t('Upload MP3 File'), 
+    '#description'   => t('Audio should be recorded in Mono at 44100 Hz, 128 kbps.'),
+    '#size'  => 40,
+  );  
+  $form['audio_upload_form']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Upload'),
+  ); 
+  $form['#attributes']['enctype'] = "multipart/form-data";
+  $form['#validate'][] = 'beast_add_audio_uploadform_validate';   
+  return $form;  
+}
+function beast_add_audio_uploadform_validate($form, &$form_state) {  
+  $validators = array('file_validate_extensions' => array('mp3'));
+  //drupal_set_message('beast_syndicated_audio_upload_validate'); 
+  //drupal_set_message("<pre>". print_r($form_state['values'], true)."</pre>");    
+  $dir ='public://' . variable_get('beast_files_folder', 'files') .'/audio';
+  $filename = $form_state['values']['beast_syndicated_audio_upload_filename'];
+  $dest_uri = $dir . '/' . $filename;
+  if (!file_prepare_directory($dir, TRUE)) { 
+    form_set_error('', t('Could not create directory @dir.', array('@dir' => $dir))); 
+  }   
+  if ($file = file_save_upload('beast_syndicated_audio_upload', $validators, $dir, FILE_EXISTS_RENAME)) {  
+    //drupal_set_message("Saved file to {$file->uri}"); 
+    $file->status = FILE_STATUS_PERMANENT;
+    $file->type = 'audio';     
+    $file = file_save($file);   
+    if ($file->uri != $dest_uri) file_move($file, $dest_uri, FILE_EXISTS_REPLACE);  
+   // drupal_set_message("<pre>" . print_r($file, true) . "</pre>");
+    $file = file_load($file->fid); // to get new uri
+    $file->filename = $filename; // to set new filename
+    file_save($file);
+    // drupal_set_message("<pre>" . print_r($file, true) . "</pre>");
+    
+    // save file to file field 
+    $file->display = '1';  
+    $node = node_load($form_state['values']['beast_syndicated_audio_upload_nid']); 
+    $node->field_audio[$node->language][0] = (array) $file; 
+    node_save($node);  
+    drupal_set_message(t('Thank you. The MP3 file was saved and it\'s page was removed from the list below. <br> Please proceed to the next audio reading.'));
+    $form_state['redirect'] = 'admin/needs-audio';
+  }
+  else form_set_error('', t('File upload failed.')); 
+}  
+
+
+
+function beast_node_audio_edit_form($node) {  
+ /* module_load_include('inc', 'audiofield', 'audiofield.module'); 
+  module_load_include('inc', 'audiofield', 'audio.field.inc');
+  module_load_include('inc', 'audiofield', 'audiofield_formatter.inc');*/
+  //ctools_include('node.pages', 'node', '');
+  module_load_include('inc', 'node', 'node.pages');  
+  //node_object_prepare($node); 
+  $form = drupal_get_form('article_node_form', $node); 
+  $hide = array('title','status','comment','promote','sticky','language',
+    'body', 'field_spintax_title', 'field_spintax_body', 'field_spintax_resource', 
+    'field_initial_keywords', 'field_related_product', 'field_syndicated_backlinks',
+    'group_promotion', 'field_image',
+    'group_syndicate', 'field_spintax_backlinks', 'field_submitted',
+    'group_backlinks', 'field_detected_backlinks', 'field_top_keywords',
+    'redirect', 'path', 'xmlsitemap', 'field_content_type', 'author', 'options',
+    'actions', 'created', 'additional_settings', 'revision_information',
+    'scheduler_settings'); 
+  
+  foreach($form['#groups'] as $key=>$item) if (in_array($key, $hide)) unset($form['#groups'][$key]);  
+  foreach($form['#group_children'] as $key=>$item) if (in_array($key, $hide)) unset($form['#group_children'][$key]); 
+  unset($form['#group_children']['group_article_media']); 
+  unset($form['#group_children']['field_audio']); 
+  unset($form['group_article_media']); 
+  foreach($form as $key=>$item) if (in_array($key, $hide)) unset($form[$key]);   
+ /* */
+  $result = "<h3>MP3 Upload for <i>\"{$node->title}\"</i></h3>";
+  $result .= "<p> <i>Audio should be recorded in Mono at 44100 Hz, 128 kbps.</i> </p>";
+  $result .= drupal_render($form); 
+  return $result;  
+}
+
+
+
 
 /**
  * Implements hook_menu().
  */
 function beast_cron() {  
-  
-  
   // update keywords in blink daily 
   if (variable_get('beast_last_blink_update', 0) < strtotime('-1 hour')) { 
     beast_update_blink_initial_keywords_cronjob();
     variable_set('beast_last_blink_update', REQUEST_TIME);
   }
+  
+  // clear out old rss cache files every hour or so
+  if (variable_get('beast_last_remove_old_rss_cachefiles', 0) < strtotime('-1 hour')) { 
+    beast_remove_old_rss_cachefiles_cronjob();
+    variable_set('beast_last_remove_old_rss_cachefiles', REQUEST_TIME);
+  }
+  
 }
 
 
-
+function beast_remove_old_rss_cachefiles_cronjob($force=FALSE) { 
+  $refresh_from = variable_get("beast_last_article_update", strtotime('-1 month')); 
+  if ($force) $refresh_from = strtotime('now');
+  
+  // delete all RSS files
+  $dir = drupal_realpath('public://rss/rss/');
+  if ($dp = @opendir($dir)) {
+    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+    @closedir($dp); 
+    @rmdir($dir);
+  } 
+  // delete all Podcast files
+  $dir = drupal_realpath('public://rss/podcast/');
+  if ($dp = @opendir($dir)) {
+    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+    @closedir($dp);
+    @rmdir($dir); 
+  }
+  // delete all Review RSS files
+  $dir = drupal_realpath('public://rss/reviews/');
+  if ($dp = @opendir($dir)) {
+    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+    @closedir($dp); 
+    @rmdir($dir);
+  } 
+}
 
 /**
  * @todo Please document this function.
@@ -161,12 +578,12 @@ function beast_admin_settings_form($form, &$form_state) {
   //=========================================== 
   $form['site_config'] = array(
       '#type'           => 'fieldset',
-      '#title'          => t('General KOC Settings'), 
+      '#title'          => t('Feed the Beast: Site Settings'), 
       '#collapsible'    => TRUE,
       '#collapsed'      => TRUE,
     );
   if (!variable_get('beast_files_folder', '')) variable_set('beast_files_folder', 
-    beast_spintax_filter('{files|pod|loc|get|spc|fld|dat|kfiles}')); 
+    beast_spintax_filter('{files|pod|loc|get|spc|fld|dat|kfiles}') . rand(1,20)); 
   $form['site_config']['beast_files_folder'] = array(
     '#type'       => 'textfield',
     '#title'      => t('Files folder name'),
@@ -186,6 +603,16 @@ function beast_admin_settings_form($form, &$form_state) {
     '#title'      => t('Generated Spintax Resource Box'),
     '#default_value'   => variable_get('beast_resource_box', ''),
     '#description'    => t('A spinning default resource box.'),
+  ); 
+  
+  if (!variable_get('beast_audio_reading_template', '')) {
+    variable_set('beast_audio_reading_template', _beast_default_values('audio_reading_template'));
+  }
+  $form['site_config']['beast_audio_reading_template'] = array(
+    '#type'       => 'textarea',
+    '#title'      => t('Audio reading template'),
+    '#default_value'   => variable_get('beast_audio_reading_template', ''),
+    '#description'    => t('A template for the audio reading of each node.'),
   ); 
   
   //=========================================== 
@@ -309,10 +736,9 @@ function beast_admin_settings_form($form, &$form_state) {
  * extra submit handler to save uploaded image
  */
 function beast_upload_podcast_image_validate($form, &$form_state) { 
-  // set podcast etc to refresh on next cron
-  variable_set('beast_rss_needs_updated', TRUE); 
-  drupal_set_message('RSS feeds will be rebuilt on next cron run. ' .
-    l('Run cron manually.', 'admin/reports/status/run-cron', array('attributes' => array('target' => '_blank'))));    
+  // delete cached RSS feeds
+  beast_remove_old_rss_cachefiles_cronjob(TRUE);    
+   
   //drupal_set_message("<pre>". print_r($form_state['values'], true)."</pre>");    
   $dir ='public://' . variable_get('beast_files_folder', 'files');
   if (!file_prepare_directory($dir, TRUE)) { 
@@ -333,39 +759,79 @@ function beast_upload_podcast_image_validate($form, &$form_state) {
 
 
 
+function beast_node_insert($node) {
+  // delete cached RSS pages
+  if ($node->type == 'article') beast_remove_old_rss_cachefiles_cronjob(TRUE);  
+}
+function beast_node_update($node) {
+  // delete cached RSS pages
+  if ($node->type == 'article') beast_remove_old_rss_cachefiles_cronjob(TRUE);   
+}
+function beast_node_delete($node) {
+  // delete cached RSS pages
+  if ($node->type == 'article') beast_remove_old_rss_cachefiles_cronjob(TRUE);  
+}
 
+ 
 function beast_init() {
-  //$tags = nodewords_get();
-  //$types = variable_get('audiopush_audio_types', 'audio');
-  $site_url = $GLOBALS['base_url'];
-  $module_url = url(drupal_get_path('module', 'beast'), array('absolute' => TRUE));
-  $site_desc = variable_get('site_slogan', '');
-
-  $title = $site_desc . ', RSS Feed';
-  $url = $module_url . '/rss.xml';
-  drupal_add_html_head('<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $url . '" />', 'beast-rss-feed');
-
-  $title = $site_desc . ', Audio Podcast Feed';
-  $url = $module_url . '/podcast.xml';
-  drupal_add_html_head('<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $url . '" />', 'beast-podcast-feed');
-/*
-  $title = $site_desc . ', Video Feed';
-  $url = $module_url . '/videocast.xml';
-  drupal_add_html_head('<link rel="alternate" type="application/rss+xml" title="' . $title . '" href="' . $url . '" />', 'beast-videocast-feed');
-*/
+  // add RSS and Podcast feed links to every page header 
+  drupal_add_html_head_link(array(
+    'rel' => 'alternate', 
+    'type' => 'application/rss+xml', 
+    'title' => variable_get('beast_podcast_title',''), 
+    'href' => url('podcast', array('absolute' => TRUE)),
+  ));
+  drupal_add_html_head_link(array(
+    'rel' => 'alternate', 
+    'type' => 'application/rss+xml', 
+    'title' => variable_get('beast_rss_title',''), 
+    'href' => url('rss', array('absolute' => TRUE)),
+  )); 
 }
 
 
-
-
-function beast_show_rss($type='rss') {  
-  $fields = _beast_rss_fields($type, $filepath, $rss_url);  
+// TODO: add last updated variable to node insert and update so our RSS feeds get regenerated!! 
+function beast_show_rss() { 
+  // pull out type and ip 
+  list($ip, $type) = array_reverse(explode('/', $_GET['q']));  
+  $ip = basename($ip, '.xml');
+  
+  // generate random seeded feed fields
+  srand(ip2long($ip)); 
+  $fields = _beast_rss_fields($type, $ip); 
+  srand(); // reset random seed 
+  
+  // format into feed
   require_once('beast_rsstools.class.php'); 
-  if ($type == 'rss') $xml = beast_rsstools::rss_xml($fields);   
+  if (in_array($type, array('rss', 'reviews'))) $xml = beast_rsstools::rss_xml($fields);   
    else if ($type == 'podcast') $xml = beast_rsstools::podcast_xml($fields);  
+       
   // add xml headers for the real thing
   header("Content-Type:application/rss+xml");
-  echo $xml;
+  echo $xml . "\n\n <!-- -->";
+  flush(); 
+    
+  // save to file 
+  $rss_dir =  'public://rss/' . $type . '/';
+  $filepath = drupal_realpath($rss_dir . $ip . '.xml');
+  if (file_prepare_directory($rss_dir, FILE_CREATE_DIRECTORY))
+     file_put_contents($filepath, $xml);  
+  //    file_save_data($xml, $rss_dir . $ip . '.xml', FILE_EXISTS_REPLACE);
+  
+  // remove any files that are old   
+  beast_remove_old_rss_cachefiles_cronjob();
+  
+  /* // got rid of this because it's slow and we've improved the shorturl process a lot
+  // update the externalize link table so that the next request will have short urls
+  if (module_exists('blink_externalize') && blink_externalize_needed()) {
+    blink_externalize_update_blink_cronjob(); // externalizes urls
+    // generate random seeded feed fields
+    srand(ip2long($ip));  $fields = _beast_rss_fields($type, $ip);  srand(); // reset random seed 
+    if (in_array($type, array('rss', 'reviews'))) $xml = beast_rsstools::rss_xml($fields);   
+      else if ($type == 'podcast') $xml = beast_rsstools::podcast_xml($fields); 
+    file_save_data($xml, $rss_dir . $ip . '.xml', FILE_EXISTS_REPLACE);
+  }
+  * */
   exit;
 }
 
@@ -375,16 +841,11 @@ function beast_spintax_largeblock($text) {
   foreach ($lines as $line) if (strlen(trim($line))) {
     $spun[] = beast_spintax_filter(trim($line));    
   }
-  return implode("\n\n", $spun) ;
+  return implode("\n\n", $spun);
 }
  
 
-function _beast_rss_fields($type, &$filepath, &$rss_url) {  
-  // randomization to allow up to 500 different randomized result sets
- /* srand(ip2long($_SERVER['SERVER_ADDR']));
-  $key = rand(1,500);
-  srand($key);  */
-   
+function _beast_rss_fields($feed_type, $ip) {   
   // generate fields by querying views
   $data = views_get_view_result('syndicated_content', 'page');
   //echo "<pre>".print_r($data, true)."</pre>"; exit;
@@ -397,21 +858,17 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
   // top site keywords - cannot exceed 255 characters in length
   if (module_exists('blink')) {
     $top = blink_top_links(20); 
+    $keywords_length = 0;
     foreach ($top as $kw) if (($keywords_length + strlen($kw['kw']) +2) < 255) {
       $list[] = $kw['kw'];
       $keywords_length += strlen($kw['kw']) + 2;
     }
     $site_keywords = implode(', ', $list);  
-  }
-   
-  /* if ($itunes_categories = variable_get('beast_podcast_itunes_categories', '')) {
-    echo "<pre>".print_r($itunes_categories, true)."</pre>"; exit;
-    foreach ($itunes_categories as $cat) $cats[] = '<itunes:category text="'.$cat.'" />';
-    $itunes_categories = implode("\n", $cats);    
-  } */
-  $itunes_categories = variable_get('beast_podcast_itunes_categories', '');
-   
-  $rss_url = "http://" . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI']; 
+  } 
+  $itunes_categories = variable_get('beast_podcast_itunes_categories', '');  
+  
+  // this gives us the shortened version before redirect
+  $rss_url = url($feed_type, array('absolute' => TRUE));  
   $fields = array (
      'rss_title' =>  variable_get('beast_rss_title', ''),  
      'podcast_title' =>  variable_get('beast_podcast_title', ''),  
@@ -436,42 +893,57 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
      'site_keywords' => $site_keywords,  
   );   
   foreach ($data as $n) { 
-    $mp3_file = $n->field_field_audio[0]['raw']['uri'];
-    if (($type=='podcast') && !$mp3_file) continue;
+    if (isset($n->field_field_audio[0]['raw']['uri'])) $mp3_file = $n->field_field_audio[0]['raw']['uri'];
+    if (($feed_type=='podcast') && !file_exists(drupal_realpath($mp3_file))) continue;
+    
+    // maybe we should have done this from the node all along
+    $node = $n->_field_data['nid']['entity'];
+    
+    $ar = array();
+    $node_type = $node->type;
+    if ($node_type == 'article') {
+      $ar['type'] = $n->field_field_content_type[0]['raw']['value'];
+      $ar['type_name'] = $n->field_field_content_type[0]['rendered']['#markup']; 
+      if (($feed_type=='reviews') && ($ar['type'] != 'review')) continue;
+    }
+    
+   //echo "<pre>".print_r($n, true)."</pre>"; exit;
     
     $mp3_info = array();
-    if($mp3_file && getid3_load()) {
-      $id3 = new getID3;
-      $mp3_info = $id3->analyze(drupal_realpath($mp3_file));
-      unset($id3);  
+    if($feed_type=='podcast') {
+      if (getid3_load()) {
+        $id3 = new getID3;
+        $mp3_info = $id3->analyze(drupal_realpath($mp3_file));
+        unset($id3);
+      }
+      $mp3_url = file_create_url($mp3_file); 
+      $mp3_length = $n->field_field_audio[0]['raw']['filesize'];
+      $node_image_600 = _beast_image_style_info($n->field_field_image[0]['raw']['uri'], '600x600'); 
       // echo "<pre>".print_r($mp3_info, true)."</pre>"; exit;
     } 
+    //if (!isset($mp3_info['mime_type'])) $mp3_info['mime_type'] = 'audio/mpeg';
       
-    $path = drupal_lookup_path('alias', 'node/'. $n->nid);
-    $page_url =  url(drupal_lookup_path('alias', 'node/'. $n->nid), array('absolute' => TRUE)); 
-    $page_url_short =  beast_shorten_url($page_url);
+    $path = drupal_lookup_path('alias', 'node/'. $node->nid);
+    $page_url =  url(drupal_lookup_path('alias', 'node/'. $node->nid), array('absolute' => TRUE)); 
+    $page_url_short = beast_shorten_url($page_url);
     $product = $n->field_field_related_product[0]['raw']['node'];
     $product->url = url(drupal_lookup_path('alias', 'node/' . $product->nid), array('absolute' => TRUE));
     $product->url_short = beast_shorten_url($product->url);
-    $author = user_load($n->_field_data['nid']['entity']->uid);  
+    $author = user_load($node->uid);  
     $username = $author->name;
       $username = str_replace(array('_', '-'), ' ', $username);
-      $username = _beast_title_case($username);
-    
+      $username = _beast_title_case($username); 
     $initial_keywords = explode(',', _beast_top_tokens($n->field_field_initial_keywords[0]['raw']['value'], 10));
-    $mp3_url = file_create_url($mp3_file); 
-    $mp3_length = $n->field_field_audio[0]['raw']['filesize'];
-    $node_image_600 = _beast_image_style_info($n->field_field_image[0]['raw']['uri'], '600x600');   
-   
+ 
     // BODY: is a spun version of body if possible (header to be added later
-    if ($body = $n->field_field_spintax_body[0][raw][value]) {  
-      $body = beast_spintax_largeblock($body);
-    } else $body = $n->field_body[0][raw][value];
+    if (isset($n->field_field_spintax_body[0]['raw']['value'])) {  
+      $body = beast_spintax_largeblock($n->field_field_spintax_body[0]['raw']['value']);
+    } else $body = $n->field_body[0]['raw']['value'];
     // [author-name] contributes to [page-link]. More on this topic can be found at [page-link]. Find more here:  [product-link] 
     $header = _beast_applytemplate(variable_get('beast_rss_body_header', ''), array(
       'author-name' => _beast_title_case($author->name),
       'site-link' => l($_SERVER['SERVER_NAME'], beast_shorten_url('http://'.$_SERVER['SERVER_NAME'])),
-      'page-link' => l($title, $page_url_short),
+      'page-link' => l($node->title, $page_url_short),
       'product-link' => l($product->title, $product->url_short), 
     )); 
     $body = $header . "\n\n" . $body;   
@@ -481,23 +953,22 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
     $body = filter_xss($body, array('a', 'em', 'strong', 'cite', 'blockquote', 'code', 
       'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'p', 'h3', 'h2', 'h1', 'b', 'i')); 
     // add keyword links
-    if (module_exists('blink')) $body = blink_markup_text($body, $n->nid);       
+    if (module_exists('blink')) $body = blink_markup_text($body);       
        
     
     // TITLE: is a spun version if possible
-    if ($title = $n->field_field_spintax_title[0][raw][value] ) {  
-      $title = beast_spintax_largeblock($title);
+    if (isset($n->field_field_spintax_title[0]['raw']['value'])) {  
+      $title = beast_spintax_largeblock($n->field_field_spintax_title[0]['raw']['value']);
     } else  $title = $n->node_title;   
        
     // SUBTITLE: is a second spun title, or old title with prefix  
-    if ($subtitle = $n->field_field_spintax_title[0][raw][value] ) {  
-      $subtitle = beast_spintax_largeblock($subtitle);
+    if (isset($n->field_field_spintax_title[0]['raw']['value'])) {  
+      $subtitle = beast_spintax_largeblock($n->field_field_spintax_title[0]['raw']['value']);
     } else $subtitle = "Podcast Episode: " .$title;
- 
-      
+  
     // RESOURCE: box when approriate (when?)
-    if ($resource = $n->field_spintax_title[0][raw][value] ) {  
-      $resource = beast_spintax_largeblock($resource);
+    if (isset($n->field_spintax_title[0]['raw']['value'])) {
+      $resource = beast_spintax_largeblock($n->field_spintax_title[0]['raw']['value']);
     } else $resource =  '' ;
             
     // SITE KEYWORDS: top keywords from blink cannot exceed 255 characters in length 
@@ -520,7 +991,7 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
     
     // put all items into an array to be formatted
     $item = array(
-      'node_title' => $title,
+      'node_title' => ($ar['type_name'] ? $ar['type_name'] . ': ' : '') . $title,
       'node_subtitle' => $subtitle,
       'node_description' => $body,
       'page_url' => $page_url,
@@ -528,14 +999,14 @@ function _beast_rss_fields($type, &$filepath, &$rss_url) {
       'node_teaser' => $n->node_title, 
       'node_keywords' => $node_keywords, 
       'node_summary' => '',
-      'node_image_600' => $node_image_600['url'],
-      'mp3_file' => $mp3_file,
-      'mp3_url' => $mp3_url,
-      'mp3_length' => $mp3_length,
-      'mp3_duration' => $mp3_info['playtime_string'],
-      'mp3_mime' => $mp3_info['mime_type'],
-      'mp3_author' => $username,
-      'mp3_guid' => $page_url,
+      'node_image_600' => isset($node_image_600['url']) ? $node_image_600['url'] : '',
+      'mp3_file' => isset($mp3_file) ? $mp3_file : '',
+      'mp3_url' => isset($mp3_url) ? $mp3_url : '',
+      'mp3_length' => isset($mp3_length) ? $mp3_length : 0,
+      'mp3_duration' => isset($mp3_info['playtime_string']) ? $mp3_info['playtime_string'] : '',
+      'mp3_mime' => isset($mp3_info['mime_type']) ? $mp3_info['mime_type'] : '',
+      'mp3_author' => isset($username) ? $username : '',
+      'mp3_guid' => isset($page_url) ? $page_url : '',
     );
     $fields['items'][] = $item;  
   }  
@@ -594,7 +1065,7 @@ function _beast_default_values($item = '') {
       return beast_spintax_filter($spintax);
       break;
     case 'resource_spintax':
-      $spintax = '[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [node-link]. [author-name] also contributed to [product-link]';
+      $spintax = '[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [page-link]. [author-name] also contributed to [site-link]';
       return $spintax; // don't spin this as we need a spintax default
       break;
     case 'site_author':
@@ -602,6 +1073,15 @@ function _beast_default_values($item = '') {
     '{Cook|Reed|Morgan|Bell|Morris|Sanchez|Collins|Edwards|Parker|Evans|Campbell|James|Watson|Ward|Brooks|Sanders}';
       return beast_spintax_filter($spintax);
       break;
+    case 'audio_reading_template':
+      $spintax = "<h2> {Welcome to the|Thanks for joining us at the|This is the|You've just entered the} ".
+        "[site] {audio podcast|podcast|audio stream|radio program|audio archive} <br> [site-url] </h2>
+        <h3>{Today's|This} [article-type] {title|episode title|episode|reading}: [title] </h3>
+        <h4><i> [article-type] {written by|researched by|contributed by} [author-name] </i></h4>  [pause] [article] [pause]
+        <h4>{Other useful|More helpful|You can find more|Look for other} [article-type-plural] at [site-url] </h4>"; 
+      $spintax = str_replace('        ', '', $spintax);
+      return beast_spintax_filter($spintax);
+      break;     
   }
 }
 
@@ -677,28 +1157,16 @@ function beast_shorten_url($long_url, $nid = 0) {
   // requires shorten module to be set up
   if (!module_exists('shorten')) return $long_url;
   // add others to check for short url or put this in a function
-  if (!strpos($long_url, '://'.$_SERVER['SERVER_NAME'])) return $long_url; 
-  
-  // figure out how to randomize this url shortener
-  
-  
-  
-  
-  /*
-  if ($nid) 
-    $short_url = db_query('SELECT short_url FROM {koc_shorturl} WHERE nid = :nid', array(':nid' => $nid))->fetchField();
-  else {
-    $short_url = db_query('SELECT short_url FROM {koc_shorturl} WHERE long_url = :long_url', array(':long_url' => $long_url))->fetchField();
-  } 
-  if (!$short_url && ($short_url = shorten_url($long_url))) {
-    // TODO Please convert this statement to the D7 database API syntax.
-    // db_query('INSERT INTO {koc_shorturl} SET nid=%d, short_url="%s", long_url="%s"', $nid, $short_url, $long_url) 
-    $row  = array('nid' => $nid, 'short_url' => $short_url, 'long_url' => $long_url);
-    drupal_write_record('koc_shorturl', $row); 
-  }*/
-  
-  $short_url = shorten_url($long_url);
-  return $short_url;
+  if (!strpos($long_url, '://'.$_SERVER['SERVER_NAME'])) return $long_url;  
+  // randomize shorten service between all available services
+  $avail_services = module_invoke_all('shorten_service'); 
+  $invisible = variable_get('shorten_invisible_services', array());
+  foreach ($invisible as $service => $hide) if ($hide) unset($avail_services[$service]);  
+  $service = array_rand($avail_services);  
+  $short_url = shorten_url($long_url, $service); 
+  if (!strpos($short_url, '://'.$_SERVER['SERVER_NAME'])) return $short_url;  
 }
+
+ 
 
 

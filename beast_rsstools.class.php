@@ -87,7 +87,7 @@ class beast_rsstools {
      <description><![CDATA[ [node_description] ]]></description>
      <link>[page_url]</link>
      <pubDate>[pubdate]</pubDate>
-     <enclosure url="[mp3_url]" length="[mp3_length]" type="[mp3_mime]" />  
+     <enclosure url="[mp3_url]" length="[mp3_length]" type="[mp3_mime]" />   
      <itunes:duration>[mp3_duration]</itunes:duration>
      <itunes:author>[mp3_author]</itunes:author>
      <itunes:subtitle><![CDATA[ [node_subtitle] ]]></itunes:subtitle> 
