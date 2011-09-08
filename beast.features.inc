@@ -20,7 +20,7 @@ function beast_ctools_plugin_api() {
 function beast_node_info() {
   $items = array(
     'article' => array(
-      'name' => t('Syndicated Content'),
+      'name' => t('Syndicated Article'),
       'base' => 'node_content',
       'description' => t('Articles, Blogs and Product Reviews which will be re-published to hundreds of other sites for backlinks.'),
       'has_title' => '1',

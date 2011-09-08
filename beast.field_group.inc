@@ -22,9 +22,8 @@ function beast_field_group_info() {
     'label' => 'Media',
     'weight' => '4',
     'children' => array(
-      0 => 'field_video',
-      1 => 'field_image',
-      2 => 'field_audio',
+      0 => 'field_image',
+      1 => 'field_audio',
     ),
     'format_type' => 'tab',
     'format_settings' => array(

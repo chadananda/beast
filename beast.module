@@ -17,7 +17,7 @@ function beast_menu() {
     'page arguments' => array('beast_admin_settings_form', NULL),
     'access callback' => 'user_access',
     'access arguments' => array('administer site configuration'),
-   // 'file' => 'koc.admin.inc',
+    // 'file' => 'koc.admin.inc',
     'weight' => -25,
     'type' => MENU_NORMAL_ITEM,
   );
@@ -32,548 +32,163 @@ function beast_menu() {
     'type'  => MENU_DEFAULT_LOCAL_TASK,
   );
   
-  
- $path = trim(parse_url(file_create_url('public://rss'),PHP_URL_PATH), '/'); 
+ // handles the three rss feeds in an imagecache manner 
+ $path = trim(parse_url(file_create_url('public://rss'), PHP_URL_PATH), '/'); 
  $items[$path] = array(
     'page callback' => 'beast_show_rss', 
     'access callback' => TRUE, 
     'type'  => MENU_CALLBACK,
  );
  
+   // editor can add new assignments
+  $items['admin/site-setup'] = array(
+    'title' => 'Site Setup Tasks', 
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_site_setup_form', NULL), 
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK, 
+  );
+ 
+ 
+  // editor can add new assignments
+  $items['admin/add-assignments'] = array(
+    'title' => 'Add Content Assignments', 
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_add_content_assignments_form', NULL), 
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK, 
+  );
+  
+  // editor can add new assignments
+  $items['admin/add-affiliated-products'] = array(
+    'title' => 'Add Affiliated Products', 
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_add_affiliated_products_form', NULL), 
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK, 
+  );  
+ 
+  // contributors can access these local node tasks when needed
+  $items['node/%node/content'] = array(
+    'title' => 'Add Page Content',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_add_content_form', 1),  
+    'access callback' => 'beast_add_content_permission',
+    'access arguments' => array(1, 'content'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 150,
+  ); 
   $items['node/%node/audio'] = array(
     'title' => 'Add Audio',
     'page callback' => 'beast_add_audio_template',
     'page arguments' => array(1),
-    'access callback' => 'beast_permission_add_audio',
-    'access arguments' => array(1),
+    'access callback' => 'beast_add_content_permission',
+    'access arguments' => array(1, 'audio'),
     'type' => MENU_LOCAL_TASK,
     'weight' => 150,
-  );
-  
+  );  
   $items['node/%node/spintax'] = array(
     'title' => 'Add Spintax',
-    'page callback' => 'beast_add_spintax_template',
-    'page arguments' => array(1),
-    'access callback' => 'beast_permission_add_spintax',
-    'access arguments' => array(1),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_add_spintax_uploadform', 1),
+    'access callback' => 'beast_add_content_permission',
+    'access arguments' => array(1, 'spintax'),
     'type' => MENU_LOCAL_TASK,
     'weight' => 155,
-  );  
-  
-  $items['node/%node/syndicate'] = array(
-    'title' => 'Syndicate',
-    'page callback' => 'beast_syndicate_template',
-    'page arguments' => array(1),
-    'access callback' => 'beast_permission_syndicate',
-    'access arguments' => array(1),
+  );    
+  $items['node/%node/promote'] = array(
+    'title' => 'Promote',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('beast_article_prmote_form', 1),
+    'access callback' => 'beast_add_content_permission',
+    'access arguments' => array(1, 'promote'),
     'type' => MENU_LOCAL_TASK,
     'weight' => 175,
   );
   
-
+  // Ajaxy callback to get live validation info on the article text.
+  $items['admin/live_text_info'] = array(
+    'title' => 'Promote',
+    'page callback' => 'beast_live_text_info', 
+    'access callback' => TRUE, 
+    'type' => MENU_CALLBACK, 
+  );
   
+  
+  $items['admin/editor-dashboard'] = array(
+    'title' => 'Editor Dashboard',
+    'page callback' => 'beast_editor_dashboard', 
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK, 
+  );  
+  
+    $items['admin/contributor-notify'] = array( 
+    'page callback' => 'beast_notify_contributor', 
+    'access callback' => 'user_access',
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_CALLBACK, 
+  ); 
+  
+    
  return $items; 
 }
 
-function beast_permission_add_audio($node) {
-  $type = ($node->type == 'article'); 
-  $access = user_access('view any unpublished content');
-  $needs_audio = count($node->field_audio) == 0;
-  if ($type && $access && $needs_audio) return TRUE;
-}
-function beast_permission_add_spintax($node) { 
-  if (!$node->type == 'article') return FALSE;
-  if (!user_access('view any unpublished content')) return FALSE;
-  // already submitted?
-  if (isset($node->field_submitted['und'][0]['value'])) { 
-    if($node->field_submitted['und'][0]['value'] > 0) return FALSE;
-  };    
-  // already has spintax fields?
-  if (isset($node->field_spintax_title['und'][0]['value']))
-    $spintax_title =  $node->field_spintax_title['und'][0]['value'];
-  if (isset($node->field_spintax_body['und'][0]['summary']))
-    $spintax_summary =  $node->field_spintax_body['und'][0]['summary'];
-  if (isset($node->field_spintax_body['und'][0]['value']))
-    $spintax_body =  $node->field_spintax_body['und'][0]['value'];
-    
-  $result = !$spintax_title || !$spintax_summary || !$spintax_body;
-  return $result;
-}
-function beast_permission_syndicate($node) {
+// controls access to content tabs (audio, spintax etc)
+function beast_add_content_permission($node, $stage='content') {   
   if (!$node->type == 'article') return FALSE;
   if (!user_access('view any unpublished content')) return FALSE; 
-  // needs audio?
-  if (count($node->field_audio) == 0) return FALSE;
-  // needs spintax? 
-  $has_spintax = isset($node->field_spintax_title) 
-    && isset($nodefield_spintax_body) 
-    && isset($node->field_spintax_resource); 
-  if (!$has_spintax) return FALSE; // needs spintax 
-   // already submitted?
-  if (isset($node->field_submitted['und'][0]['value']))  
-    return ($node->field_submitted['und'][0]['value'] == 0);
-  else return FALSE;     
-}
-
-function beast_add_audio_template($node) {   
-  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
- 
-   $content = "<h1>Audio reading of: <i></i>\"{$node->title}\"</i></h1>"; 
-   
-   $directions = "<p> <i>Audio should be recorded in Mono at 44100 Hz, 128 kbps.</i> <br>" .
-     " The final MP3 file should be named:  &nbsp; &nbsp; <b>" .
-     drupal_get_path_alias('node/' . $node->nid) .'.mp3' .
-     "</b> </p>";
-     
-   $content .= $directions;
-   
-   
-  $template = variable_get('beast_audio_reading_template', ''); 
-  
-  $site = '<span class="replaced site">' . variable_get('site_name', '') .'</span>';   
-  $site_domain = '<span class="replaced domain">' . str_replace(
-    array('://', 'http'    , '.',     '-'), 
-    array(''   , 'H T T P ', ' DOT ', ' '), $GLOBALS['base_url']) .'</span>'; 
-    
-  // article type field
-  $field_info = field_info_field('field_content_type'); 
-  $field_key = $node->field_content_type['und'][0]['value'];
-  $field_value = $field_info['settings']['allowed_values'][$field_key]; 
-  $article_type = '<span class="replaced type">' . $field_value . '</span>';   
-  
-  if (module_exists('markdown')) $article = _filter_markdown($node->body['und'][0]['value'], ''); 
-  $article = '<div class="replaced body">' .
-    strip_tags($article, '<p><h3><ol> <li> <ul> <b> <i>') . '</div>';
-  $title = '<span class="replaced type">' . $node->title . '</span>';
-  
-  $replace = array( 
-    'site' => $site,
-    'site-url' => $site_domain,
-    'article-type' => $article_type,
-    'title' => $title,
-    'pause' => '',
-    'article' => $article,
-    'author-name' => _beast_title_case($node->name), 
-    'article-type-plural' => $article_type . 's',  
-  ); 
-  $content .= '<div class="reading_block">' . _beast_applytemplate($template, $replace) . '</div>';
-   
-  //  $content .= "<hr>";
-  //  $content .= '<div class="node_form">' . beast_node_audio_edit_form($node) . '</div>';
-    
-  //$content .= beast_node_audio_upload_form($node);
-  $content .= drupal_render(drupal_get_form('beast_add_audio_uploadform', $node, $directions));
-   
-  $content .= "<h1 style='text-align:center; width:100%'>" . 
-     l(t('Other content needing audio >>'), 'admin/needs-audio') . "</h1>";
-  
-  return $content;
-}
-function beast_add_spintax_template($node) {  
-  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
-  $content = "<h1>Spintax conversion of: <i></i>\"{$node->title}\"</i></h1>";  
-   $directions = "<p> <i>Convert text to spintax then submit.</i>  </p>"; 
-   $content .= $directions;
-   
-  $content .= drupal_render(drupal_get_form('beast_add_spintax_uploadform', $node, $directions)); 
-  
-  $content .= "<h1 style='text-align:center; width:100%'>" . 
-     l(t('Other content needing spintax >>'), 'admin/needs-spintax') . "</h1>";
-  
-  return $content;
-}
-function beast_syndicate_template($node) { 
-  return "<h2>Submission: {$node->title}</h2>"; 
+  $was_submitted = isset($node->field_submitted[LANGUAGE_NONE][0]['value']) ?
+    $node->field_submitted[LANGUAGE_NONE][0]['value'] : FALSE;   
+  if ($was_submitted) return FALSE;    
+  // tests    
+  $has_content = isset($node->body[LANGUAGE_NONE][0]['value']) && (strlen($node->body[LANGUAGE_NONE][0]['value']) > 1000); // should be 3050 for 500 words   
+  $proofread = $node->promote;
+  // spintax fields 
+  if (isset($node->field_spintax_title[LANGUAGE_NONE][0]['value']))
+    $spintax_title = (boolean) $node->field_spintax_title[LANGUAGE_NONE][0]['value'];
+  if (isset($node->field_spintax_body[LANGUAGE_NONE][0]['summary']))
+    $spintax_summary =  (boolean) $node->field_spintax_body[LANGUAGE_NONE][0]['summary'];
+  if (isset($node->field_spintax_body[LANGUAGE_NONE][0]['value']))
+    $spintax_body = (boolean) $node->field_spintax_body[LANGUAGE_NONE][0]['value'];
+  $has_spintax = (boolean) ($spintax_title && $spintax_summary && $spintax_body); 
+  $has_audio = isset($node->field_audio) && (count($node->field_audio)>0);
+  $is_published = (boolean) $node->status; 
+  $is_promoted = (boolean) $node->field_submitted[LANGUAGE_NONE][0]['value'];  
+  // stage: content / audio / spintax / promote  
+  switch ($stage) { 
+    case 'content': return (!$has_content);  
+    case 'proofread': return (!$has_content && !$proofread);  
+    case 'audio'  : return ($has_content && !$has_audio && $proofread);  
+    case 'spintax': return ($has_content && !$has_spintax && $proofread);  
+    case 'promote': return ($has_content && $has_audio && $has_spintax && $is_published &&
+       $proofread && !$is_promoted);   
+  }  
 }
  
-function beast_cleanup_bodytext($text) {
-  if (!trim($text)) return '';
-  $lines = explode("\n", $text);
-  foreach ($lines as $line) if (trim($line)) $newlines[] = $line;
-  return implode("\n\n", $newlines);  
-} 
-
-function beast_add_spintax_uploadform($form, &$form_state, $node, $description) { 
-  $form['spintax_upload_form']['beast_syndicated_audio_upload_nid'] = array(
-    '#type'       => 'hidden',
-    '#value'      => $node->nid,  
-  ); 
-  
- // title 
- $form['spintax_upload_form_title'] = array(
-      '#type'           => 'fieldset',
-      '#title'          => t('Title'),  
-      '#collapsible'    => TRUE, 
-      '#collapsed'      => FALSE,
-      '#rows'   => 4,
-      '#weight'  => -5,
-  ); 
-  $form['spintax_upload_form_title']['spintax_title'] = array(
-    //'#title'   => t('Article Title'), 
-    '#type' => 'textarea',
-    '#default_value' => $node->title,
-    '#suffix' => "<div class='unspun_text title'>" . $node->title . "</div>",
-    '#required' => TRUE,
-  );  
-  
-  // summary
-  $form['spintax_upload_form_summary'] = array(
-      '#type'           => 'fieldset',
-      '#title'          => t('Summary'),  
-      '#collapsible'    => TRUE, 
-      '#collapsed'      => TRUE,
-      '#weight'  => -4,
-  );   
-  $summary = beast_cleanup_bodytext(strip_tags($node->body['und'][0]['summary'])); 
-  $form['spintax_upload_form_summary']['spintax_summary'] = array( 
-    '#type' => 'textarea',
-    '#default_value' => $summary,
-    '#suffix' => "<div class='unspun_text summary'>" . str_replace("\n", "<br>", $summary) . "</div>",
-    '#required' => TRUE,
-    '#rows'   => 8,
-  );  
-  
-  // body 
-  $form['spintax_upload_form_body'] = array(
-      '#type'           => 'fieldset',
-      '#title'          => t('Body'),  
-      '#collapsible'    => TRUE, 
-      '#collapsed'      => TRUE,
-      '#weight'  => -3,
-  ); 
- $body = beast_cleanup_bodytext(strip_tags($node->body['und'][0]['value'])); 
-  $form['spintax_upload_form_body']['spintax_body'] = array(
-    //'#title'   => t('Article Body'), 
-    '#type' => 'textarea',
-    '#default_value' => $body,
-    '#suffix' => "<div class='unspun_text body'>" . str_replace("\n", "<br>", $body) . "</div>",
-    '#required' => TRUE,
-    '#rows'   => 30,
-  );  
-  
-  $form['spintax_upload_form']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Submit'),
-    '#weight' => 5,
-  );  
-  $form['#validate'][] = 'beast_add_spintax_uploadform_validate';   
-  $form['#submit'][] = 'beast_add_spintax_uploadform_submit';    
-  return $form;  
-}
-
-function beast_validate_spintax($text, $min=5, &$error) {
-  $error ='';
-  foreach (count_chars($text, 1) as $asc=>$count) $c[chr($asc)] = $count; 
-  if (!isset($c['{']) || !isset($c['}'])) $error = t('spintax seems to have wrong curly bracket count.'); 
-  
-  elseif (($c['{'] < $min) || ($c['|'] < $min*3)) $error = t('spintax needs more spin options.'); 
-  
-  return !$error;
-}
-function beast_add_spintax_uploadform_validate($form, &$form_state) {
-  $f = $form_state['values'];  
- 
-  if (!beast_validate_spintax($f['spintax_title'], 5, &$error))
-    form_set_error('spintax_title', 'Title: ' . $error);
-    
-  if (!beast_validate_spintax($f['spintax_summary'], 5, &$error))
-    form_set_error('spintax_summary', 'Summary: ' . $error);
-    
-  if (!beast_validate_spintax($f['spintax_body'], 15, &$error))
-    form_set_error('spintax_body', 'Body: ' . $error); 
-  
- // $form_state['redirect'] = 'admin/needs-spintax';
- // $form_state['redirect'] = 'node/' . arg(1); // for testing
-}
-function beast_add_spintax_uploadform_submit($form, &$form_state) {
-  $f = $form_state['values']; 
-  $node = node_load($f['beast_syndicated_audio_upload_nid']);
-  $spintax_title = $f['spintax_title'];
-  $spintax_summary = $f['spintax_summary'];
-  $spintax_body = $f['spintax_body'];
-  
-  $node->field_spintax_title['und'][0]['value'] = $spintax_title;
-  $node->field_spintax_body['und'][0]['summary'] = $spintax_summary;
-  $node->field_spintax_body['und'][0]['value'] = $spintax_body;
-  
-  node_save($node);  
-  drupal_set_message(t('Thank you. The spintax data was saved and it\'s page was removed from the list below. <br> Please proceed to the next article spinning.'));
-  drupal_goto('admin/needs-spintax');
-}
-
-
-
-
-function beast_generate_resource_box_spintax($node, $html = TRUE) {
-  /*
-[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [page-link]. [author-name] also contributed to [site-link]
-   */  
-  $site_url = $GLOBALS['base_url'];
-  $host = parse_url($site_url, PHP_URL_HOST);
-  $page_url = url('node/' . $node->nid, array('absolute' => TRUE));
-  // top goals for page
-  $top_page_goals = blink_top_goals_random(5, 5, $page_url);
-  foreach ($top_page_goals as $goal) {
-    $top_page_links[] = l($goal['kw'], $goal['url']);
-    $top_page_urls[] = $goal['url'];
-  }
-  $top_page_links_spintax = '{' . implode('|', $top_page_links) . '}';
-  $top_page_urls_spintax = '{' . implode('|', $top_page_urls) . '}';
-  // top goals for site
-  $top_site_goals = blink_top_goals_random(20, 20);  
-  foreach ($top_site_goals as $goal) {
-    $top_site_links[] = l($goal['kw'], $goal['url']);
-    $top_site_urls[] = $goal['url'];
-  }
-  $top_site_links_spintax = '{' . implode('|', $top_site_links) . '}';
-  $top_site_urls_spintax = '{' . implode('|', $top_site_urls) . '}';
-   
-  // apply template
-  $details = array(
-    'author-name' => ucwords($node->name),
-    'page-link' => $html ? $top_page_links_spintax : $top_page_urls_spintax,
-    'site-link' => $html ? $top_site_links_spintax : $top_site_urls_spintax,
-  );
-  return _beast_applytemplate(variable_get('beast_resource_box',''), $details); 
-}
-
-function beast_add_audio_uploadform($form, &$form_state, $node, $description) { 
- $form['audio_upload_form'] = array(
-      '#type'           => 'fieldset',
-      '#title'          => t('Upload'), 
-      '#description'    => $description,
-      '#collapsible'    => FALSE, 
-  );  
-  $form['audio_upload_form']['beast_syndicated_audio_upload_nid'] = array(
-    '#type'       => 'hidden',
-    '#value'      => $node->nid,  
-  ); 
-  $form['audio_upload_form']['beast_syndicated_audio_upload_filename'] = array(
-    '#type'       => 'hidden',
-    '#value'      => drupal_get_path_alias('node/' . $node->nid) .'.mp3',  
-  );  
-  $form['audio_upload_form']['beast_syndicated_audio_upload'] = array(
-    '#type'       => 'file',
-    '#title'      => t('Upload MP3 File'), 
-    '#description'   => t('Audio should be recorded in Mono at 44100 Hz, 128 kbps.'),
-    '#size'  => 40,
-  );  
-  $form['audio_upload_form']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Upload'),
-  ); 
-  $form['#attributes']['enctype'] = "multipart/form-data";
-  $form['#validate'][] = 'beast_add_audio_uploadform_validate';   
-  return $form;  
-}
-function beast_add_audio_uploadform_validate($form, &$form_state) {  
-  $validators = array('file_validate_extensions' => array('mp3'));
-  //drupal_set_message('beast_syndicated_audio_upload_validate'); 
-  //drupal_set_message("<pre>". print_r($form_state['values'], true)."</pre>");    
-  $dir ='public://' . variable_get('beast_files_folder', 'files') .'/audio';
-  $filename = $form_state['values']['beast_syndicated_audio_upload_filename'];
-  $dest_uri = $dir . '/' . $filename;
-  if (!file_prepare_directory($dir, TRUE)) { 
-    form_set_error('', t('Could not create directory @dir.', array('@dir' => $dir))); 
-  }   
-  if ($file = file_save_upload('beast_syndicated_audio_upload', $validators, $dir, FILE_EXISTS_RENAME)) {  
-    //drupal_set_message("Saved file to {$file->uri}"); 
-    $file->status = FILE_STATUS_PERMANENT;
-    $file->type = 'audio';     
-    $file = file_save($file);   
-    if ($file->uri != $dest_uri) file_move($file, $dest_uri, FILE_EXISTS_REPLACE);  
-   // drupal_set_message("<pre>" . print_r($file, true) . "</pre>");
-    $file = file_load($file->fid); // to get new uri
-    $file->filename = $filename; // to set new filename
-    file_save($file);
-    // drupal_set_message("<pre>" . print_r($file, true) . "</pre>");
-    
-    // save file to file field 
-    $file->display = '1';  
-    $node = node_load($form_state['values']['beast_syndicated_audio_upload_nid']); 
-    $node->field_audio[$node->language][0] = (array) $file; 
-    node_save($node);  
-    drupal_set_message(t('Thank you. The MP3 file was saved and it\'s page was removed from the list below. <br> Please proceed to the next audio reading.'));
-    $form_state['redirect'] = 'admin/needs-audio';
-  }
-  else form_set_error('', t('File upload failed.')); 
-}  
-
-
-
-function beast_node_audio_edit_form($node) {  
- /* module_load_include('inc', 'audiofield', 'audiofield.module'); 
-  module_load_include('inc', 'audiofield', 'audio.field.inc');
-  module_load_include('inc', 'audiofield', 'audiofield_formatter.inc');*/
-  //ctools_include('node.pages', 'node', '');
-  module_load_include('inc', 'node', 'node.pages');  
-  //node_object_prepare($node); 
-  $form = drupal_get_form('article_node_form', $node); 
-  $hide = array('title','status','comment','promote','sticky','language',
-    'body', 'field_spintax_title', 'field_spintax_body', 'field_spintax_resource', 
-    'field_initial_keywords', 'field_related_product', 'field_syndicated_backlinks',
-    'group_promotion', 'field_image',
-    'group_syndicate', 'field_spintax_backlinks', 'field_submitted',
-    'group_backlinks', 'field_detected_backlinks', 'field_top_keywords',
-    'redirect', 'path', 'xmlsitemap', 'field_content_type', 'author', 'options',
-    'actions', 'created', 'additional_settings', 'revision_information',
-    'scheduler_settings'); 
-  
-  foreach($form['#groups'] as $key=>$item) if (in_array($key, $hide)) unset($form['#groups'][$key]);  
-  foreach($form['#group_children'] as $key=>$item) if (in_array($key, $hide)) unset($form['#group_children'][$key]); 
-  unset($form['#group_children']['group_article_media']); 
-  unset($form['#group_children']['field_audio']); 
-  unset($form['group_article_media']); 
-  foreach($form as $key=>$item) if (in_array($key, $hide)) unset($form[$key]);   
- /* */
-  $result = "<h3>MP3 Upload for <i>\"{$node->title}\"</i></h3>";
-  $result .= "<p> <i>Audio should be recorded in Mono at 44100 Hz, 128 kbps.</i> </p>";
-  $result .= drupal_render($form); 
-  return $result;  
-}
-
-
-
-
-/**
- * Implements hook_menu().
- */
-function beast_cron() {  
-  // update keywords in blink daily 
-  if (variable_get('beast_last_blink_update', 0) < strtotime('-1 hour')) { 
-    beast_update_blink_initial_keywords_cronjob();
-    variable_set('beast_last_blink_update', REQUEST_TIME);
-  }
-  
-  // clear out old rss cache files every hour or so
-  if (variable_get('beast_last_remove_old_rss_cachefiles', 0) < strtotime('-1 hour')) { 
-    beast_remove_old_rss_cachefiles_cronjob();
-    variable_set('beast_last_remove_old_rss_cachefiles', REQUEST_TIME);
-  }
-  
-}
-
-
-function beast_remove_old_rss_cachefiles_cronjob($force=FALSE) { 
-  $refresh_from = variable_get("beast_last_article_update", strtotime('-1 month')); 
-  if ($force) $refresh_from = strtotime('now');
-  
-  // delete all RSS files
-  $dir = drupal_realpath('public://rss/rss/');
-  if ($dp = @opendir($dir)) {
-    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
-      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
-    @closedir($dp); 
-    @rmdir($dir);
-  } 
-  // delete all Podcast files
-  $dir = drupal_realpath('public://rss/podcast/');
-  if ($dp = @opendir($dir)) {
-    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
-      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
-    @closedir($dp);
-    @rmdir($dir); 
-  }
-  // delete all Review RSS files
-  $dir = drupal_realpath('public://rss/reviews/');
-  if ($dp = @opendir($dir)) {
-    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
-      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
-    @closedir($dp); 
-    @rmdir($dir);
-  } 
-}
-
-/**
- * @todo Please document this function.
- * @see http://drupal.org/node/1354
- */
-function beast_update_blink_initial_keywords_cronjob() {  
-  if (!module_exists('blink')) return; 
-  $source = "initial-keywords";
-  variable_set("{$source}_blink_readonly", TRUE);
-  variable_set("{$source}_blink_weight", -5);
-  variable_set("{$source}_blink_description", t('("beast" module) These are "best guess" or "early target" keywords drawn from the "Initial Keywords" field in syndicated content and affiliated products. Note: if KWGOALS module is enabled, any keywords in the KWGOALS list will be removed from this list automatically.')); 
-  
-  // remove old beast goals
-  //$beast_goals = blink_get_keyword_goals('beast'); // returns full record array
-  //foreach ($beast_goals as $beast_goal) blink_delete_keyword_goal($beast_goal, 'beast'); 
-  
-  // get list of goals from blink
-  $beast_goals = blink_get_keyword_goals($source); // returns full record array
-  drupal_set_message(count($beast_goals) . " {$source} goals");
-  // build index by keyword group, since initial_keywords are not unique
-  if ($beast_goals) foreach ($beast_goals as $goal) $beast_index[$goal['kw']][] = $goal;
-  
-  // gather up list of indexed kwgoal links
-  $kwgoals = blink_get_keyword_goals('best-google-hits'); // returns full record array
-  drupal_set_message(count($kwgoals) . " best-google-hits goals");
-  // build index by keyword, since kwgoals keywords are unique
-  if ($kwgoals) foreach ($kwgoals as $goal) $kwgoals_index[$goal['kw']] = $goal; 
-
-  // pull out list of all initial_keyword field, using EFQ. Hope this is fast, sure miss SQL!
-  $query = new EntityFieldQuery();
-  $entities = $query->entityCondition('entity_type', 'node')
-                  //  ->entityCondition('bundle', array('article', 'affilite_product'), 'IN')
-                    ->fieldCondition('field_initial_keywords')
-                    ->propertyCondition('status', 1)  
-                    ->execute(); 
-  $nodes = node_load_multiple(array_keys($entities['node'])); // ouch, all for just nid and a single field
-  
-  // gather up list of all keywords with associated nid  
-  if (count($nodes)) foreach ($nodes as $node) {
-    if ($initial_keywords = $node->field_initial_keywords['und'][0]['safe_value']) {
-      $kws = explode(',', $initial_keywords);
-      foreach ($kws as $kw) $node_kws[strtolower(trim($kw))][$node->nid] = $node->nid; 
-    }
-  } 
-  // Loop through current node keywords and delete them if they are in kwgoals list
-  if ($node_kws) foreach ($node_kws as $kw => $nids) {
-    if (isset($kwgoals_index[$kw])) {
-      // if in beast blink list, remove all matching goals from blink
-      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) blink_delete_keyword_goal($goal, 'beast'); 
-      // remove from blink list
-      unset($node_kws[$kw]);
-      drupal_set_message("Removed keyword '{$kw}' goal from {$source} list because it was found in best-google-hits");
-    }
-  }
-  // loop through current goals and delete them if they are not in current keywords
-  if (isset($beast_goals)) foreach ($beast_goals as $beast_goal) {
-    // if goal kw and url not found in keywords list
-    $kw = $beast_goal['kw'];
-    $url = $beast_goal['url'];
-    $delete = TRUE;
-    // we don't delete if we can locate a keyword/url pair matching this goal
-    if ($node_kws[$kw]) foreach ($node_kws[$kw] as $nid)
-      if (url('node/' . $nid, array('absolute' => TRUE)) == $url) $delete = FALSE;   
-    if ($delete) {
-      blink_delete_keyword_goal($beast_goal, $source);
-      drupal_set_message("Deleted {$source} goal as a match was found in best-google-hits '{$kw}' '{$url}'");
-    }
-  }
-  // loop through the current node keywords and add them if they are not in the current goals
-  if ($node_kws) foreach ($node_kws as $kw => $nids) {
-    foreach ($nids as $nid) {
-      $found = FALSE;
-      $url =  url('node/' . $nid, array('absolute' => TRUE));
-      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) if ($goal['url'] == $url) $found = TRUE;  
-      if (!$found) {
-        blink_add_keyword_goal($kw, $url, variable_get('beast_initial_keyword_weight', 1), $source);
-        drupal_set_message("Added new {$source} goal '{$kw}' '{$url}'");
-      }
-    } 
-  }
-}
-
- 
-
-/**
- *  
- */
+// main settings form
 function beast_admin_settings_form($form, &$form_state) {
   // beast_update_blink_goals_cronjob(); // for testing 
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_forms.css'); 
   // beast_update_blink_initial_keywords_cronjob();  // for testing porpoises 
+   
+   /*
+  if ($url = $_GET['image']) {  
+    if ($file = @fopen($url, "r")) {
+      $headers = stream_get_meta_data($file); 
+      beast_r($headers);
+      foreach ($headers as $header) if (is_array($header)) foreach ($header as $value) if (strpos($value, 'ontent-Type:')) { 
+        $mime = trim(end(explode(":", $value)));
+        list($type) = explode("/", $mime);
+        if ($type = 'image') drupal_set_message("Got image: {$url}"); 
+         else drupal_set_message("Image not recognized: {$url}", 'warning'); 
+      }   
+    } 
+  }
+  */
   
   //=========================================== 
   $form['site_config'] = array(
@@ -727,14 +342,28 @@ function beast_admin_settings_form($form, &$form_state) {
     '#title'      => t('Podcast webmaster email'),
     '#default_value'   => variable_get('beast_rss_email', ''),
   );
-
-
+  
+  //=========================================== 
+  $form['scheduling'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Auto Scheduler'),
+      '#description'   => t('Determine how often to publish queued articles'),
+      '#collapsible'    => TRUE,
+      '#collapsed'      => TRUE,
+  );  
+  $form['scheduling']['beast_schedule_min'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Minimum number of articles to publish initially'),
+    '#default_value'   => variable_get('beast_schedule_min', 9),
+  );
+  $form['scheduling']['beast_schedule_frequency'] = array(
+    '#type'       => 'textfield',
+    '#title'      => t('Days between publishing of new articles from queue'),
+    '#default_value'   => variable_get('beast_schedule_frequency', 5),
+  );
+  
   return system_settings_form($form);
 }
-
-/**
- * extra submit handler to save uploaded image
- */
 function beast_upload_podcast_image_validate($form, &$form_state) { 
   // delete cached RSS feeds
   beast_remove_old_rss_cachefiles_cronjob(TRUE);    
@@ -757,7 +386,1689 @@ function beast_upload_podcast_image_validate($form, &$form_state) {
    else drupal_set_message("Error uploading file: {$file->uir}", 'warning'); 
 }
 
+// editor checklist for site building
+function beast_site_setup_form($form, &$form_state) {
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
+   
+ $form['tabs'] = array(
+      '#type'           => 'vertical_tabs', 
+      '#collapsible'    => TRUE, 
+ ); 
+ 
+ // ==============================================================
+ $form['tabs']['site_setup_settings'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('1. Basic Site Setup'),  
+      '#collapsible'    => TRUE, 
+      '#description'          => t('Technical site setup, look and feel, subject etc.'),  
+ );  
+ 
+  $form['tabs']['site_setup_settings']['beast_checklist_email'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Site Email'),
+   '#default_value' => variable_get('beast_checklist_email', 0),
+   '#description' => 'Setup Site Email - admin@domain, info@domain, articles@domain',
+  );
+  $form['tabs']['site_setup_settings']['beast_checklist_database'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Copy and cleanup database'),
+   '#default_value' => variable_get('beast_checklist_database', 0),
+   '#description' => 'Copy over database, remove all content, paths, shorturls, keywords etc.',
+  );
+  $form['tabs']['site_setup_settings']['beast_checklist_theme'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Implement new theme'),
+   '#default_value' => variable_get('beast_checklist_theme', 0),
+  // '#description' => 'Copy over database, remove all content, paths, shorturls, keywords etc.',
+  );
+  $form['tabs']['site_setup_settings']['beast_checklist_imagestyles'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('New Image Styles') . ' - ' . 
+     l(t('[edit image styles]'), 'admin/config/media/image-styles', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_imagestyles', 0),
+   '#description' => 'Create new images styles with roughly the same sizes',
+  );
+  $form['tabs']['site_setup_settings']['beast_checklist_siteinfo'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Change Site Information') . ' - ' . 
+     l(t('[edit site information]'), 'admin/config/system/site-information', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_siteinfo', 0),
+   '#description' => 'Site name, slogan etc.',
+  );    
+  $form['tabs']['site_setup_settings']['beast_checklist_pathauto'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Change content paths') . ' - ' . 
+     l(t('[edit pathauto]'), 'admin/config/search/path/patterns', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_pathauto', 0),
+   //'#description' => 'Create new images styles with roughly the same sizes',
+  );
+  $form['tabs']['site_setup_settings']['beast_checklist_articletypes'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Rename the three article types') . ' - ' . 
+     l(t('[rename article types]'), 'admin/structure/types/manage/article/fields/field_content_type#edit-field', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_articletypes', 0),
+   '#description' => 'Change public names of "blog", "review", "article"',
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_keywordgoals'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Upload keyword goals cluster') . ' - ' . 
+     l(t('[upload keyword goals]'), 'admin/config/development/keyword-goals', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_keywordgoals', FALSE),
+   '#description' => 'Upload CSV files from Google external keywords tool',
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_ownerprofile'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Change details of site owner') . ' - ' . 
+     l(t('[edit owner profile]'), 'user/8/edit?destination=admin/people/people', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_ownerprofile', FALSE),
+   '#description' => 'Plug in some interesting information about our site owner, backstory',
+  );  
+  $form['tabs']['site_setup_settings']['beast_checklist_beast_settings'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Beast RSS Settings') . ' - ' . 
+     l(t('[edit Beast settings]'), 'admin/config/development/beast', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_beast_settings', FALSE),
+   '#description' => 'Set up the site paths, RSS fields etc.',
+  ); 
+  
+  $form['tabs']['site_setup_settings']['accounts_header'] = array ('#markup' => 
+    '<div class="divider">' . t('External Service Accounts') . '</div>');
+    
+  $form['tabs']['site_setup_settings']['beast_checklist_accounts_audiopush'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Audiopush account, add keys'),   
+   // . ' - ' . l(t('[edit]'), 'admin/config/development/beast', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_accounts_audiopush', FALSE), 
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_accounts_webchimp'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Webchimp account, add keys') . ' ' . l('[mailchimp settings]', 'admin/config/services/mailchimp',
+     array('attributes' => array('target' => '_blank'))),   
+   //
+   '#description' => t('For mailing list, use the product review feed: ')
+    . l(url('reviews', array('absolute' => TRUE)), 'reviews', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_accounts_webchimp', FALSE), 
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_accounts_facebook'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Facebook account, add keys'),   
+   // . ' - ' . l(t('[edit]'), 'admin/config/development/beast', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_accounts_facebook', FALSE), 
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_accounts_twitter'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Twitter account, add keys'),   
+   // . ' - ' . l(t('[edit]'), 'admin/config/development/beast', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_accounts_twitter', FALSE), 
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_accounts_googleanalytics'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Google Analytics account, add keys'),   
+   // . ' - ' . l(t('[edit]'), 'admin/config/development/beast', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_accounts_googleanalytics', FALSE), 
+  ); 
+  $form['tabs']['site_setup_settings']['beast_checklist_accounts_googlewebmaster'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Setup Google Webmaster account, add keys'),   
+   // . ' - ' . l(t('[edit]'), 'admin/config/development/beast', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => variable_get('beast_checklist_accounts_googlewebmaster', FALSE), 
+  ); 
+  
+  
+ 
+ // ==============================================================
+ $form['tabs']['site_setup_users'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('2. Select Contributors'),  
+      '#collapsible'    => TRUE, 
+      '#description'          => t('Select contributors, these will be select lists later.'),  
+ ); 
+  // gather up all users with role 'contributor'
+  $contributors = array(0 => ' ----  none  ---- ');  
+  $query = db_query("SELECT u.uid, u.name FROM {users} u, {users_roles} ur, {role} r
+    WHERE u.uid=ur.uid AND ur.rid = r.rid AND r.name IN ('contributor', 'editor')"); 
+  foreach ($query as $c) $contributors[$c->uid] = ucwords($c->name);   
+ 
+  $form['tabs']['site_setup_users']['add_user'] = array('#markup' =>
+     t('There are currently @count contributors in the system. ', array('@count' => count($contributors))) .
+     t('If needed, ') . l(t('[add new user]'), 'admin/people/create'),
+  ); 
+   
+  $form['tabs']['site_setup_users']['beast_checklist_user_editor'] = array(
+   '#title' =>t('Select site Editor user'),  
+   '#type' => 'select',
+   '#options' => $contributors,
+   '#default_value' => variable_get('beast_checklist_user_editor', 0), 
+  );  
+   
+  $form['tabs']['site_setup_users']['beast_checklist_user_writer'] = array(
+   '#title' =>t('Select primary Writer'),  
+   '#type' => 'select',
+   '#options' => $contributors,
+   '#default_value' => variable_get('beast_checklist_user_writer', 0), 
+  ); 
+  $form['tabs']['site_setup_users']['beast_checklist_user_reader'] = array(
+   '#title' =>t('Select primary Reader'),  
+   '#type' => 'select',
+   '#options' => $contributors,
+   '#default_value' => variable_get('beast_checklist_user_reader', 0), 
+  ); 
+  $form['tabs']['site_setup_users']['beast_checklist_user_spinner'] = array( 
+   '#title' =>t('Select primary Spinner'),  
+   '#type' => 'select',
+   '#options' => $contributors,
+   '#default_value' => variable_get('beast_checklist_user_spinner', 0), 
+  ); 
+  $form['tabs']['site_setup_users']['beast_checklist_user_promoter'] = array( 
+   '#title' =>t('Select primary Promoter'),  
+   '#type' => 'select',
+   '#options' => $contributors,
+   '#default_value' => variable_get('beast_checklist_user_promoter', 0), 
+  ); 
+  
+  
+ // ==============================================================
+ $form['tabs']['site_setup_content'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('3. Create Content'),  
+      '#description'    => t('Create assignments, start writing, reading, spinning'),
+      '#collapsible'    => TRUE, 
+ ); 
+  $products = db_query("SELECT count(*) FROM {node} WHERE type='affiliate_product'")->fetchField(); 
+  $form['tabs']['site_setup_content']['beast_content_affiliateproducts'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Create 10-15 Affiliated Products (<b>@products</b> products found)', array('@products' => $products))
+     . ' - ' . l(t('[add affiliate-products]'), 'admin/add-affiliated-products', array('attributes' => array('target' => '_blank'))),
+   '#default_value' => $products<4 ? 0 : variable_get('beast_content_affiliateproducts', 0), 
+  );  
+ 
 
+  $articles = db_query("SELECT count(*) FROM {node} WHERE type='article'")->fetchField(); 
+  $assignments = count(views_get_view_result('beast_articles', 'page_2')); 
+  $form['tabs']['site_setup_content']['beast_content_assignments'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Create 30-50 Article Assignments (<b>@assignments</b> assignments, <b>@articles</b> total articles)', 
+     array('@assignments' => $assignments, '@articles' => $articles))
+     . ' - ' . l(t('[add article assignments]'), 'admin/add-assignments', array('attributes' => array('target' => '_blank'))),    
+   '#default_value' => variable_get('beast_content_assignments', 0), 
+   '#description'    => t('Ensure keywords are broadly selected from the keyword cluster (avoid using the same ones over and over.)'),
+  ); 
+  
+  if ($writer = variable_get('beast_checklist_user_writer', 0)) $writer = user_load($writer);
+  if ($writer) $writer_desc = '<br>' . t('The selected writer is @name, ',
+    array('@name' => ucwords($writer->name))) . l('[email]', 'mailto:' . $writer->mail, array('absolute' => TRUE)); 
+  else $writer_desc = '';
+  $form['tabs']['site_setup_content']['beast_content_writing'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Start Writer creating content from the assignments'),    
+   '#default_value' => variable_get('beast_content_writing', 0), 
+   '#description'    => t('Assign task to writer, providing him with the url: ') .
+      l(url('admin/needs-content', array('absolute' => TRUE)), 'admin/needs-content',  array('attributes' => array('target' => '_blank'))) . $writer_desc, 
+    '#suffix'  => '<div class="divider"> <i>' . t('wait for content writing completion') . '</i></div>',
+  );  
+  
+  $needs_proofread = count(views_get_view_result('beast_articles', 'page_3')); 
+  $form['tabs']['site_setup_content']['beast_content_proofread'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Proofread, edit and approve, newly-written documents.   (<b>@count</b> waiting approval)',
+      array('@count' => $needs_proofread)),    
+   '#default_value' => variable_get('beast_content_proofread', 0), 
+   '#description'    => t('Editor reads, edits and approves articles before they are released for reader and spinner: ') .
+      l(t('[articles needing proofread]'), 'admin/needs-proofread',  array('attributes' => array('target' => '_blank'))),  
+  );  
+   
+   
+  $needs_audio = count(views_get_view_result('beast_articles', 'page'));  
+  $reading_link_url = url('admin/needs-audio', array('absolute' => TRUE));
+  $reading_link = l($reading_link_url, 'admin/needs-audio', array('attributes' => array('target' => '_blank')));
+  if ($reader = variable_get('beast_checklist_user_reader', 0)) $reader = user_load($reader);
+  if ($reader) {
+    $reader_name = ucwords($reader->name);
+    $reader_desc = '<br>' . t('The selected reader is @name, ', array('@name' => $reader_name));
+    $reader_desc .= '<a href="mailto:' . $reader->mail . '?subject=' . 
+      'Articles needing audio at '. $GLOBALS['base_url'] . '&body=' . 
+      urlencode("Hi {$reader_name}, we've got {$needs_audio} articles ready for your audio reading. Here's the list: {$reading_link_url}") . '">[notify ' . $reader_name . ']</a>'; 
+  }
+  else $reader_desc = ''; 
+  $form['tabs']['site_setup_content']['beast_content_reading'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Start Reader creating audio (<b>@count</b> waiting for audio)', 
+     array('@count' => $needs_audio)),    
+   '#default_value' => variable_get('beast_content_reading', 0), 
+   '#description'    => t('Assign reading task to audio reader. Providing him with the url: ') .
+      $reading_link . $reader_desc, 
+  );  
+  
+  $needs_spintax = count(views_get_view_result('beast_articles', 'page_1')); 
+  $spintax_link_url = url('admin/needs-spintax', array('absolute' => TRUE));
+  $spintax_link = l($spintax_link_url, 'admin/needs-spintax', array('attributes' => array('target' => '_blank')));
+  if ($spinner = variable_get('beast_checklist_user_spinner', 0)) $spinner = user_load($spinner);
+  if ($spinner) {
+    $spinner_name = ucwords($spinner->name);
+    $spinner_desc = '<br>' . t('The selected spinner is @name, ', array('@name' => $spinner_name));
+    $spinner_desc .= '<a href="mailto:' . $spinner->mail . '?subject=' . 
+      'Articles needing audio at '. $GLOBALS['base_url'] . '&body=' . 
+      urlencode("Hi {$spinner_name}, we've got {$needs_spintax} articles ready for you to spintax. Here's the list: {$spintax_link_url}") . '">[notify ' . $spinner_name . ']</a>'; 
+  }
+  else $spinner_desc = ''; 
+  
+  $form['tabs']['site_setup_content']['beast_content_spintax'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Start Spinner creating spintax for articles (<b>@count</b> waiting for spintax)', 
+     array('@count' => $needs_spintax)),    
+   '#default_value' => variable_get('beast_content_spintax', 0), 
+   '#description'    => t('Assign reading task to audio reader. Providing him with the url: ') .
+      $spintax_link . $spinner_desc, 
+    '#suffix'  => '<div class="divider"> <i>' . t('wait for content audio reading and spintax') . '</i></div>',
+  );  
+  
+
+  $queued =  count(views_get_view_result('beast_articles', 'page_6'));       
+  $published = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=1 AND promote=1")->fetchField();
+  $form['tabs']['site_setup_content']['beast_content_initialpub'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Publish 9 initial articles, 3 of each type.  (<b>@published</b> currently published, <b>@queued</b> ready for publication)',
+     array('@published' => $published, '@queued' => $queued)) 
+    .  ' - ' . l(t('[edit content]'), 'admin/content', array('attributes' => array('target' => '_blank'))),    
+   '#default_value' => $count < 6 ? 0 : variable_get('beast_content_initialpub', 0), 
+   '#description'    => t('Publish three articles of each type (blog, review, article): '), 
+  );   
+   
+   /*
+  //$count = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=0 AND promote=1")->fetchField();
+  $form['tabs']['site_setup_content']['beast_content_schedule'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Schedule remaining articles. (<b>@queued</b> scheduled, <b>@needs_scheduled</b> needing scheduled)',
+      array('@queued' => $queued))
+    .  ' - ' . l(t('[list of articles needing scheduled]'), 'admin/needs-scheduled', array('attributes' => array('target' => '_blank'))),    
+   '#default_value' => variable_get('beast_content_schedule', 0),  
+   '#description' => t('Currently <b>@count</b> articles are scheduled in the publication queue.',
+     array('@count' => $queued)),
+  ); */
+ 
+  $needs_promoted = count(views_get_view_result('beast_articles', 'page_5'));  
+  //$count = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=0 AND promote=1")->fetchField();
+  $form['tabs']['site_setup_content']['beast_content_promote'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Promote published articles. (<b>@count</b> published articles needing promoted)', array('@count' => $needs_promoted))
+    .  ' - ' .  l(url('admin/needs-promoted', array('absolute' => TRUE)),  'admin/needs-promoted', array('attributes' => array('target' => '_blank'))),    
+   '#default_value' => variable_get('beast_content_promote', 0),   
+  );
+ 
+ // ==============================================================
+ $form['tabs']['site_setup_promotion'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('4. Promote Site'),  
+      '#description'          => t('Promote RSS, Podcast feeds, Initial Content, Schedule Promotion'),  
+      '#collapsible'    => TRUE, 
+ );  
+  $form['tabs']['site_setup_promotion']['beast_promote_sitesubmit'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Directory Submission of Website')  
+    .  ' - ' . l(t('[site submission service]'), '', array('attributes' => array('target' => '_blank'))),    
+   '#default_value' => variable_get('beast_promote_sitesubmit', FALSE),  
+  );  
+  
+  $form['tabs']['site_setup_promotion']['beast_promote_rss'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Promote RSS Feed')  
+    .  ' - ' . l(t('[RSS feed submission]'), '', array('attributes' => array('target' => '_blank')))   
+    .  ' - ' . l(url('rss', array('absolute' => TRUE)), 'rss', array('attributes' => array('target' => '_blank'))),  
+   '#default_value' => variable_get('beast_promote_rss', FALSE),  
+  ); 
+  
+  $form['tabs']['site_setup_promotion']['beast_promote_podcast'] = array(
+   '#type' => 'checkbox',
+   '#title' =>t('Promote Podcast Feed')  
+    .  ' - ' . l(t('[Podcast submission]'), '', array('attributes' => array('target' => '_blank')))   
+    .  ' - ' . l(url('podcast', array('absolute' => TRUE)), 'podcast', array('attributes' => array('target' => '_blank'))),  
+   '#default_value' => variable_get('beast_promote_podcast', FALSE),  
+  ); 
+  
+  // ==============================================================
+  $form['tabs']['site_setup_advertise'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('5. Sell Advertising'),  
+      '#description'          => t('After the site is getting > 200 visitors each day, start selling keyword advertising.'),  
+      '#collapsible'    => TRUE, 
+  );  
+ 
+  $form['tabs']['site_setup_advertise']['beast_site_advertisers'] = array(
+   '#type' => 'textarea',
+   '#default_value' => 
+"Catherine Doyle <catherine.doyle@premiumlinkadvertising.com>
+Cherie Nolasco <cherie@linkbuilding.net>
+Cassandra Smith <cassandra@betterlinkadvertising.com>
+Ashton Alexander ashton@linkbuilding.net
+Max <mcava@linkmonopoly.com> (represents web.com)
+Peter Long <techmediabuyer@gmail.com> (never got back to me)
+Antony Step <amtadvertisement@gmail.com> (low budget)
+Gary Martin <Gary@ztmc.net> (offered $60/mo)
+
+alex <alex@linkbuilding.net>
+ 
+Belle <belle@betterlinkadvertising.com>
+Brian Johnston <BBac130@gmail.com>
+Brandon brandon@linkbuilding.net 
+Kyle <kyle@linkvehicle.com> ?? automated?
+Nichole <nicole@betterlinkadvertising.com>
+Lars Bell <lars@slidescanningpros.com> (purchased for own company)
+James Marlowe <james.marlowe@branded3.com>
+Tom Taylor <tomtaylor7@gmail.com>
+Forest <forestm@toprankweb.com> (offered $1100/yr)
+
+Affiliate offer: Michael Quiroz <m.quiroz@zenok.com> 
+CPM? Soledad Martinetti soledad@creafi.com
+Jason Place <j.place@finditquick.com> (%75/%25 split ads)
+ 
+Shepherdess <shepherdess@easeus.com>
+cindy <cindy@easeus.com>
+Robin Jia <robin@easeus.com>
+eva <eva@easeus.com>
+Rance <rancelan2008@hotmail.com> (easeus)"  );
+ 
+ 
+ 
+  
+ // $form['#validate'][] = 'beast_site_setup_form_validate';   
+  $form['#submit'][] = 'beast_site_setup_form_submit';    
+  return system_settings_form($form);  
+}
+function beast_site_setup_form_submit($form, &$form_state) {
+  // any custom submission logic from setup
+}
+
+// bulk add affiliate products form
+function beast_add_affiliated_products_form($form, &$form_state) {
+$default ='Product Name = "Product Name Here, Can be Long"
+Keywords = "product name, product category, related keywords"
+Description = "Long product description, can contain markdown or simple html syntax"
+Product URL = "http://full-affiliate-url-here.com?affid=whatever"
+========  
+';  
+  $form['beast_affiliate_products'] = array(
+    '#title'    => t('Affiliate Products'), 
+    '#type'     => 'textarea',
+   //   '#default_value' => "Article Type = ''\nTitle = ''\nKeywords = ''\nSummary = ''\n========\n",
+    '#default_value' => $default,    
+    '#suffix'   => "",
+    '#prefix'   => t('<h4>Enter affiliated products with the example format. Note: keyword phrases should be comma delimited and should be less than 5 words. Keywords should include product name, category and related keywords. </h4>'),
+    '#required' => TRUE,
+    '#rows'     => 10,
+  );    
+  $form['submit'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Submit'),
+    '#weight' => 5,
+  );  
+  $form['#validate'][] = 'beast_add_affiliated_products_form_validate';   
+  $form['#submit'][] = 'beast_add_affiliated_products_form_submit';    
+  return $form;  
+}
+function _beast_parse_products($text) { // returns an array of values
+/*
+Product Name = "Product Name Here, Can be Long"
+Keywords = "product name, product category, related keywords"
+Description = "Long product description, can contain markdown or simple html syntax"
+Product URL = "http://full-affiliate-url-here.com?affid=whatever" 
+=============== */
+  $lines = explode("\n", $text);
+  $count =0;
+  foreach ($lines as $line) {
+    if (substr(trim($line), 0, 4) == '====') $count++;
+    else if (trim($line)) {
+      list($key, $value) = explode('=', $line);
+      $key = strtolower(trim($key));  
+      $value = trim($value, "'\n\r.\" ");    
+      if (in_array($key, array('product name', 'keywords', 'description', 'product url')))
+       if ($key == 'product name') $result[$count][$key] = _beast_title_case($value);
+        else if (in_array($key, array('product url', 'description'))) $result[$count][$key] = $value;
+         else if ($key == 'keywords')  $result[$count][$key] = beast_keyword_list_cleanup($value, 80);  
+    }
+  }  
+  return $result;
+}
+function beast_add_affiliated_products_form_validate($form, &$form_state) {   
+  $f = $form_state['values']; 
+  $products = _beast_parse_products($f['beast_affiliate_products']); 
+  foreach ($products as $key=>$a) {
+    $product_link = isset($a['product url']) ? $a['product url'] : '';
+    $title = isset($a['product name']) ? $a['product name'] : '';
+    $keywords = isset($a['keywords']) ? $a['keywords'] : '';
+    $description = isset($a['description']) ? $a['description'] : ''; 
+    // check fields exist
+    if (!$description || !$title || !$keywords || !$product_link) { 
+      if (!$product_link) form_set_error('', 'Product URL missing or mistyped in item "' . $title .'"');
+      if (!$title) form_set_error('', 'Title missing or mistyped in item #' . $key+1);
+      if (!$keywords) form_set_error('', 'Keywords missing or mistyped in item "' . $title .'"');
+      if (!$description) form_set_error('', 'Description missing or mistyped in item "' . $title .'"');
+      continue;
+    }
+    // check fields are legit  
+    else {     
+      $count = count(explode(',', $keywords)); $min=3; $max=8;
+      if (($count<$min) || ($count>$max)) form_set_error('', "Keywords must have between $min and $max phrases seperated by commas - in item \"$title\"");   
+      $found = db_query("SELECT count(*) FROM {node} WHERE type='affiliate_product' AND title=:title", 
+        array(':title' => $title))->fetchField();
+      if ($found) form_set_error('', "A product titled \"{$title}\" already exists");
+    }
+  }   
+}
+function beast_add_affiliated_products_form_submit($form, &$form_state) { 
+    // node fields
+    // ->title
+    // ->body[LANGUAGE_NONE][0]['value']
+    // ->field_initial_keywords[LANGUAGE_NONE][0]['value']
+    // ->field_product_link[LANGUAGE_NONE][0]['url']
+    // ->name (chand)
+    // array('product name', 'keywords', 'description', 'product url')
+  $f = $form_state['values'];
+  $products = _beast_parse_products($f['beast_affiliate_products']);
+  
+  //beast_r($products); return;
+  
+  foreach ($products as $a) { 
+    $node = new stdClass();
+    $node->type = 'affiliate_product';
+    node_object_prepare($node);
+   // beast_r($node); 
+    $node->title = $a['product name'];
+    $node->language = LANGUAGE_NONE; 
+    $node->body[$node->language][0]['value']   = $a['description']; 
+    $node->body[$node->language][0]['format']  = 'full_html'; 
+    // assign product url
+    $node->field_product_link[$node->language][0]['url'] = $a['product url']; 
+    // node->name (chand)
+    // initial keywords
+    $node->field_initial_keywords[LANGUAGE_NONE][0]['value'] = $a['keywords']; 
+    $node->field_editor[LANGUAGE_NONE][0]['uid'] = $GLOBALS['user']->uid;  
+    node_submit($node);
+    node_save($node); 
+    drupal_set_message("Created new Affiliated Product: ". l($node->title, 'node/' . $node->nid));
+  } 
+}
+
+// bulk add article assignments form
+function beast_add_content_assignments_form($form, &$form_state) {
+$default ="
+Article Type = 'blog'
+Title = 'This is my first Blog Post, I hope you like it'
+Keywords = 'blogger, blog,bloggy,blog,blogerama'
+Summary = \"I'm writing this blog post in order to strengthen my resolve. So far it does not seem to be working. Thanks anyway guys.\"
+======== 
+";  
+  
+  $form['beast_content_assignments'] = array(
+    '#title'    => t('Article Assignments'), 
+    '#type'     => 'textarea',
+    '#default_value' => "Article Type = ''\nTitle = ''\nKeywords = ''\nSummary = ''\n========\n",
+   //  '#default_value' => $default,    
+    '#suffix'   => "",
+    '#prefix'   => t('<h4>Enter article assignments using the example format. Note: keywords should be comma delimited. Summary should be 10-20 words. Type is one of "article", "blog", or "review".</h4>'),
+    '#required' => TRUE,
+    '#rows'     => 10,
+  );    
+  $form['submit'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Submit'),
+    '#weight' => 5,
+  );  
+  $form['#validate'][] = 'beast_add_content_assignments_form_validate';   
+  $form['#submit'][] = 'beast_add_content_assignments_form_submit';    
+  return $form;  
+}
+function _beast_parse_assignments($text) { // returns an array of values
+  $lines = explode("\n", $text);
+  $count =0;
+  foreach ($lines as $line) {
+    if (substr(trim($line), 0, 4) == '====') $count++;
+    else if (trim($line)) {
+      list($key,$value) = explode('=', $line);
+      $key = strtolower(trim($key));  
+      $value = trim($value, "'\n\r.\" ");  
+      if (in_array($key, array('article type', 'title', 'keywords', 'summary')))
+       if ($key == 'title') $result[$count][$key] = _beast_title_case($value);
+        else if ($key == 'article type') $result[$count][$key] = strtolower($value);
+         else if ($key == 'keywords') { 
+           $result[$count][$key] = beast_keyword_list_cleanup($value, 80);
+           /*
+           $kws = explode(',', strtolower($value));
+           $new = array();
+           foreach ($kws as $kw)  if (str_word_count($kw) < 5) $new[trim($kw)] = trim($kw); // trim and remove dups
+           $result[$count][$key] = implode(', ', $new); */
+         }
+         else $result[$count][$key] = $value;
+    }
+  }  
+  return $result;
+}
+function beast_add_content_assignments_form_validate($form, &$form_state) { 
+  $f = $form_state['values']; 
+  $assignments = _beast_parse_assignments($f['beast_content_assignments']);  
+  foreach ($assignments as $key=>$a) {
+    $type = isset($a['article type']) ? $a['article type'] : '';
+    $title = isset($a['title']) ? $a['title'] : '';
+    $keywords = isset($a['keywords']) ? $a['keywords'] : '';
+    $summary = isset($a['summary']) ? $a['summary'] : ''; 
+    // check fields exist
+    if (!$type || !$title || !$keywords || !$summary) { 
+      if (!$type) form_set_error('', 'Type missing or mistyped in item "' . $title .'"');
+      if (!$title) form_set_error('', 'title missing or mistyped in item #' . $key+1);
+      if (!$keywords) form_set_error('', 'Keywords missing or mistyped in item "' . $title .'"');
+      if (!$summary) form_set_error('', 'Summary missing or mistyped in item "' . $title .'"');
+      continue;
+    }
+    // check fields are legit  
+    else { 
+      if (!in_array($type, array('article','blog','review')))
+      form_set_error('', 'Type has to be one of "article", "blog", or "review" in item "' . $title .'"');
+      
+      $count = str_word_count($title); $min=8; $max=15;
+      if (($count<$min) || ($count>$max)) form_set_error('', "Title must be between $min and $max words in item \"$title\"");
+    
+      $count = str_word_count($summary); $min=25; $max=75;
+      if (($count<$min) || ($count>$max)) form_set_error('', "Summary must be between $min and $max words in item \"$title\"");
+    
+      $count = count(explode(',', $keywords)); $min=3; $max=5;
+      if (($count<$min) || ($count>$max)) form_set_error('', "Keywords must have between $min and $max phrases seperated by commas (currently $count: $keywords) - in item \"$title\"");
+      
+      $found = db_query('SELECT count(*) FROM {node} WHERE title=:title', 
+        array(':title' => $a['title']))->fetchField();
+      if ($found) form_set_error('', "An article titled \"{$as['title']}\" already exists");
+    }
+  }  
+}
+function beast_add_content_assignments_form_submit($form, &$form_state) { 
+  $f = $form_state['values'];
+  $assignments = _beast_parse_assignments($f['beast_content_assignments']);
+  foreach ($assignments as $a) { 
+    $node = new stdClass();
+    $node->type = 'article';
+    node_object_prepare($node);
+   // beast_r($node); 
+    $node->title    = $a['title'];
+    $node->language = LANGUAGE_NONE; 
+    $node->body[$node->language][0]['value']   = '';
+    $node->body[$node->language][0]['summary'] = $a['summary'];
+    $node->body[$node->language][0]['format']  = 'full_html'; 
+    // assign article_type
+    $node->field_content_type[LANGUAGE_NONE][0]['value'] = $a['article type']; 
+    // initial keywords
+    $node->field_initial_keywords[LANGUAGE_NONE][0]['value'] = $a['keywords']; 
+    $products = db_query('SELECT nid FROM {node} WHERE type=:product', 
+      array(':product' => 'affiliate_product'))->fetchAssoc();
+    shuffle($products); 
+    $node->field_related_product[LANGUAGE_NONE][0]['nid'] = $products[0];  
+    node_submit($node);
+    node_save($node); 
+    drupal_set_message("Created new {$a['article type']}: ". l($node->title, 'node/' . $node->nid));
+  } 
+}
+
+// contributor add content
+function beast_add_content_form($form, &$form_state, $node) { 
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
+  drupal_add_js(drupal_get_path('module', 'beast') .'/live_text_info.js', 'file');
+  
+  $form['beast_add_content_nid'] = array(
+    '#type'       => 'hidden',
+    '#value'      => $node->nid,  
+  );  
+  // display article type, title, summary, keywords, , collect body text and images 
+  $title = $node->title;
+  $summary = $node->body[LANGUAGE_NONE][0]['summary'];
+  $keywords = str_replace(',', ', ', $node->field_initial_keywords[LANGUAGE_NONE][0]['value']);  
+    // article type field (we want to look up the value, not the key
+  $field_info = field_info_field('field_content_type'); 
+  $article_type = $field_info['settings']['allowed_values'][$node->field_content_type[LANGUAGE_NONE][0]['value']];
+   
+  // form for display   
+  $form['beast_add_content'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Article Writing Instructions: (please read carefully)'),  
+      '#collapsible'    => FALSE, 
+      '#collapsed'      => FALSE,
+      '#description' => t('<ol>
+<li> Obviously, articles must be completely original, not re-written. We have zero tolerance for plagiarism. Each article is based on an assignment with title, keywords and summary. Stick closely to the intent of the title. For example, if the title is "How I deleted my photos", make up a story about that. 
+
+<li> This content is for human enjoyment. It must be engaging, fun to read, funny, full of real facts, useful, well organized.
+
+<li> The most important content will be the sub-headers. There must be 4-5 subheaders (on their own line, denoted with a prefixed "###"). Each article should start with one subheader and then break of the text with 3-4 more. Each subheader should be 8-15 words. They should stand on their own, be funny and creative. Use the same rules one would use for writing really good titles. Read this post at least once: ' . l('[easy creative titles]', 'http://12plans.com/public/node/159', array('attributes' => array('target' => '_blank'))) . '
+
+<li> No external links
+
+<li> Keywords: Try to use the keywords wherever possible without stuffing. Ideally, each keyword will be used twice in the article.
+
+<li> Each article should have 2-4 images (as appropriate). Images should not have watermarks and should be at least 300x300 in size (bigger is better)
+
+<li> No HTML formatting! Instead, use simple Markdown syntax: 
+<pre><b>  ###         (subheader)
+  *           (bullet list item)
+  1.          (numbered list item)  </b></pre> </ol> '), 
+  ); 
+  $form['info_open'] = array('#markup' => '<div class="article_info">');
+  $form['info_label'] = array('#markup' => '<div class="label">' . $article_type . ' Assignment</div>'); 
+  $form['title'] = array('#markup' => "<h2 class='title'><span class='title_label'>{$article_type} Title:</span> {$title}</h2>"); 
+  $form['keywords'] = array('#markup' => "<div class='keywords'> {$keywords}</div>"); 
+  //$form['summary'] = array('#markup' => "<p class='summary'> {$summary}</p>"); 
+  $form['info_close'] = array('#markup' => '</div>'); 
+//  $form['beast_add_content']['info_description'] = array('#markup' => t('<p class="description">Body text should be 400-600 words, should have 3-4 sub-headers (prefixed with "###", the sub-headers should be funny, stimulating and engaging (subheaders are the most important content.) the text should use the keywords at least once, but not overuse them.</p>'));  
+
+  $form['beast_add_content_summary'] = array(
+    '#type'      => 'textarea',
+    '#title'     => t('Summary'),
+    '#default_value' => $summary,
+    '#description' => t('Use this initial summary as a guideline. Re-write it as necessary.'),
+    '#rows'      => 3, 
+  );
+  $form['beast_add_content_body'] = array(
+    '#type'      => 'textarea',
+    '#title'     => t('Article Text'),
+    '#description' => t('Use basic markdown syntax for headers, lists. Do not include links or HTML'),
+    '#rows'      => 15,
+    '#prefix'    => '<div class="add_body_text"><div id="live_text_info">' .  '</div>',
+    '#suffix'    => '<div class="add_body_text_below"></div></div>', 
+  );
+  
+  $form['beast_add_content_pictures'] = array(
+    '#type'      => 'textarea',
+    '#title'     => t('Article Pictures'),
+    '#description' => t('Include URLs for at least two screen shots or related images. Note: these should not be small or watermarked. They must be at least 300 pixles in width and height, the bigger the better. If you have pictures locally (such as screen shots you have taken), use a service like Dropbox to provide a URL for each.'),
+    '#rows'      => 3,
+  );
+  $form['submit'] = array(
+    '#type'   => 'submit',
+    '#value'  => t('Submit'),
+    '#weight' => 5,
+  );  
+  $form['#validate'][] = 'beast_add_content_form_validate';   
+  $form['#submit'][] = 'beast_add_content_form_submit';  
+  return $form;
+}
+function beast_add_content_form_validate($form, &$form_state) {
+  $f = $form_state['values']; 
+  $node = node_load($f['beast_add_content_nid']);
+  $body = beast_cleanup_bodytext($f['beast_add_content_body']); 
+    //form_set_value($form['beast_add_content']['beast_add_content_body'], $body, $form_state);
+    // beast_r($form['beast_add_content']['beast_add_content_body']);
+  $urls_text = $f['beast_add_content_pictures'];
+  $keywords = $node->field_initial_keywords[LANGUAGE_NONE][0]['value'];
+  // check text passes rules  
+  $errors = beast_live_text_info($body, $keywords, TRUE);
+  if (count($errors)) foreach ($errors as $error) form_set_error('beast_add_content_body', 'Article Text: ' . $error); 
+
+  // check that we have 2 valid urls in url box
+  $urls = explode("\n", $urls_text);
+  foreach ($urls as $key=>$url) $urls[$key] = trim(strtolower($url));
+  foreach ($urls as $url) if (substr($url, 0, 4) === 'http') $urls_list[$url] = $url; // remove dups
+  if (count($urls_list)<2) form_set_error('beast_add_content_pictures', t('Pictures: Must have at least 2 valid image URLS')); 
+  // check urls are of type (jpg|gif|png)  
+  if (isset($urls_list)) foreach ($urls_list as $url) { 
+    $ext = end(explode('.', $url));
+    if (!in_array($ext, array('png', 'jpg', 'jpeg', 'ping', 'gif'))) form_set_error('beast_add_content_pictures', t('Pictures: URL not a valid type (must be jpg, png or gif)'));
+    
+    // validate mime type of item to avoid non-image urls
+    if ($file = @fopen($url, "r")) {
+      $headers = stream_get_meta_data($file);  
+      foreach ($headers as $header) if (is_array($header)) foreach ($header as $value) if (strpos($value, 'ontent-Type:')) { 
+        $mime = trim(end(explode(":", $value)));
+        list($type) = explode("/", $mime);
+        if (strtolower($type) != 'image') form_set_error('beast_add_content_pictures', t('Pictures: URL is not a valid image file: @url', array('@url' => $url)));
+      }   
+    }  
+    
+  }
+  
+}
+function beast_add_content_form_submit($form, &$form_state) {
+  $f = $form_state['values']; 
+  $node = node_load($f['beast_add_content_nid']);
+  $body = beast_cleanup_bodytext($f['beast_add_content_body']);  
+  $summary = beast_cleanup_bodytext($f['beast_add_content_summary']);  
+  $urls_text = $f['beast_add_content_pictures'];
+  $keywords = $node->field_initial_keywords[LANGUAGE_NONE][0]['value'];
+  // modify, save node
+  $node->body[LANGUAGE_NONE][0]['value'] = $body; 
+  $node->body[LANGUAGE_NONE][0]['summary'] = $summary;  
+  
+  // upload, attach images  
+  //node_submit($node);
+  //node_save($node); 
+  $urls = explode("\n", $urls_text);
+  foreach ($urls as $key=>$url) $urls[$key] = trim(strtolower($url));  
+  $dir ='public://' . variable_get('beast_files_folder', 'files') .'/pictures';
+  foreach ($urls as $url) {
+    $dest_uri = $dir . '/' . basename($url); 
+    file_prepare_directory($dir, TRUE);
+    $image = file_get_contents($url);   
+    $file = file_save_data($image, $dest_uri, FILE_EXISTS_RENAME);
+    
+    if (is_object($file)) {  
+      //drupal_set_message("Saved file to {$file->uri}"); 
+      $file->status = FILE_STATUS_PERMANENT;
+      $file->type = 'image';     
+      $file = file_save($file);    
+      $file->display = '1';   
+      $node->field_image[LANGUAGE_NONE][] = (array) $file; 
+    }
+  } 
+  $node->field_writer[LANGUAGE_NONE][0]['uid'] = $GLOBALS['user']->uid;
+  // change actual node author so we can use profile penname and picture
+  $node->uid = $GLOBALS['user']->uid;
+  // not sure if this will work
+  $node->name = beast_contributor_penname($node->uid);
+  variable_set('beast_last_submitted_' . $GLOBALS['user']->uid, time()); 
+  node_submit($node);
+  node_save($node);    
+  drupal_set_message("Successfully added content to article: ". l($node->title, 'node/' . $node->nid));
+  drupal_goto('admin/needs-content');
+}
+function beast_live_text_info($text='', $keywords='', $just_validate=FALSE) {
+  if (empty($text)) $text = trim($_POST['text']);
+  if (empty($keywords)) $keywords = trim($_POST['keywords']);
+  
+  // echo "text: $text <br> kw: $keywords"; exit;
+  
+  $min_word_count = 500;
+  $min_par_count = 6;
+  $min_keyword_count = 4;
+  $max_keyword_count=10;
+  $min_heading_count = 4;
+  $min_heading_length = 8; // words
+  $min_heading_keywords = 2;   
+  
+  $clean_text = trim(strip_tags(str_replace('#', '', $text)));
+  $lines = explode("\n", $text);
+  $rules = array();
+  
+  // word count 
+  $word_count = str_word_count($clean_text);  
+  $rules['word_count']['msg'] = 'Word Count: <span class="val">' . $word_count . '</span> ';
+  if ($word_count < $min_word_count) {
+    $rules['word_count']['error'] = t('Minimum @min words required', array('@min' => $min_word_count)); 
+  }
+  
+  // paragraph count
+  $par_count =0; 
+  foreach ($lines as $line) if ((strlen(trim($line)) > 50) && (substr(trim($line), 0, 3) != '###')) $par_count++;  
+  $rules['par_count']['msg'] = 'Paragraph Count: <span class="val">' . $par_count . '</span> ';
+  if ($par_count < $min_par_count) {
+    $rules['par_count']['error'] = t('Minimum @min paragraphs required', array('@min' => $min_par_count)); 
+  } 
+  
+  // header count
+  $header_count =0; 
+  foreach ($lines as $line) if (substr(trim($line), 0, 3)==='###') $header_count++;  
+  $rules['header_count']['msg'] = 'Subheader Count: <span class="val">' . $header_count . '</span> ';
+  if ($header_count < $min_heading_count) {
+    $rules['header_count']['error'] = t('Minimum @min Subheaders required. <br /> Subheads begin with ###. ', array('@min' => $min_heading_count)); 
+  }  
+     
+  // sub-header at beginning of article
+  $header_start = substr($text, 0, 3)==='###'; 
+  $rules['header_start']['msg'] = 'Starts with subheader: <span class="val">' .
+    ($header_start ? 'yes' : 'no') . '</span> ';
+  if (!$header_start) {
+    $rules['header_start']['error'] = t('Article must begin with a subheader.'); 
+  }   
+  
+  if ($header_count) {
+    // minimum subheader length of 8 words 
+    foreach ($lines as $line) if (substr(trim($line), 0, 3)==='###') {
+      $line = trim($line, " # # "); 
+      $count = str_word_count($line);
+      $header_length = ($count >= $min_heading_length);
+      if (!$header_length) break; 
+    }
+    $rules['header_length']['msg'] = 'Subheaders length ' . $min_heading_length . ': <span class="val">' .
+      ($header_length ? 'yes' : 'no') . '</span> ';
+    if (!$header_length) {
+      $rules['header_length']['error'] = t('Subheaders must be > @min words.', array('@min' => $min_heading_length)); 
+    } 
+  }  
+  
+  if ($just_validate) {
+    $errors = array();
+    foreach ($rules as $rule) if (isset($rule['error'])) $errors[] = $rule['error'];
+    return $errors;    
+  } 
+  else {
+    $result = '<ul class="live_text_info_list">';  
+    foreach ($rules as $key=>$rule) {
+      if(!isset($rule['error'])) $rules[$key] = '<li class="ok">' . $rule['msg'] . '</li>';  
+       else $rules[$key] = "<li class='fail'>{$rule['msg']}<div class='rule'>{$rule['error']}</div></li>";   
+    }  
+    echo '<ul class="live_text_info_list">' . implode("\n  ", $rules) . '</ul>';
+    exit;
+  } 
+}
+
+// contributor add audio to page
+function beast_add_audio_template($node) {   
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
+ 
+   $content = "<h1>Audio reading of: <i></i>\"{$node->title}\"</i></h1>"; 
+   
+   $directions = "<p> <i>Audio should be recorded in Mono at 44100 Hz, 128 kbps.</i> <br>" .
+     " The final MP3 file should be named:  &nbsp; &nbsp; <b>" .
+     drupal_get_path_alias('node/' . $node->nid) .'.mp3' .
+     "</b> </p>";
+     
+   $content .= $directions;
+   
+   
+  $template = variable_get('beast_audio_reading_template', ''); 
+  
+  $site = '<span class="replaced site">' . variable_get('site_name', '') .'</span>';   
+  $site_domain = '<span class="replaced domain">' . str_replace(
+    array('://', 'http'    , '.',     '-'), 
+    array(''   , 'H T T P ', ' DOT ', ' '), $GLOBALS['base_url']) .'</span>'; 
+    
+  // article type field
+  $field_info = field_info_field('field_content_type'); 
+  $field_key = $node->field_content_type[LANGUAGE_NONE][0]['value'];
+  $field_value = $field_info['settings']['allowed_values'][$field_key]; 
+  $article_type = '<span class="replaced type">' . $field_value . '</span>';   
+  
+  if (module_exists('markdown')) $article = _filter_markdown($node->body[LANGUAGE_NONE][0]['value'], ''); 
+  $article = '<div class="replaced body">' .
+    strip_tags($article, '<p><h3><ol> <li> <ul> <b> <i>') . '</div>';
+  $title = '<span class="replaced type">' . $node->title . '</span>';
+  
+  
+  
+  $replace = array( 
+    'site' => $site,
+    'site-url' => $site_domain,
+    'article-type' => $article_type,
+    'title' => $title,
+    'pause' => '',
+    'article' => $article,
+    'author-name' => beast_contributor_penname($node->uid), 
+    'article-type-plural' => $article_type . 's',  
+  ); 
+  $content .= '<div class="reading_block">' . _beast_applytemplate($template, $replace) . '</div>';
+   
+  //  $content .= "<hr>";
+  //  $content .= '<div class="node_form">' . beast_node_audio_edit_form($node) . '</div>';
+    
+  //$content .= beast_node_audio_upload_form($node);
+  $content .= drupal_render(drupal_get_form('beast_add_audio_uploadform', $node, $directions));
+   
+  $content .= "<h1 style='text-align:center; width:100%'>" . 
+     l(t('Other content needing audio >>'), 'admin/needs-audio') . "</h1>";
+  
+  return $content;
+}
+function beast_add_audio_uploadform($form, &$form_state, $node, $description) { 
+ $form['audio_upload_form'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Upload'), 
+      '#description'    => $description,
+      '#collapsible'    => FALSE, 
+  );  
+  $form['audio_upload_form']['beast_syndicated_audio_upload_nid'] = array(
+    '#type'       => 'hidden',
+    '#value'      => $node->nid,  
+  ); 
+  $form['audio_upload_form']['beast_syndicated_audio_upload_filename'] = array(
+    '#type'       => 'hidden',
+    '#value'      => drupal_get_path_alias('node/' . $node->nid) .'.mp3',  
+  );  
+  $form['audio_upload_form']['beast_syndicated_audio_upload'] = array(
+    '#type'       => 'file',
+    '#title'      => t('Upload MP3 File'), 
+    '#description'   => t('Audio should be recorded in Mono at 44100 Hz, 128 kbps.'),
+    '#size'  => 40,
+  );  
+  $form['audio_upload_form']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Upload'),
+  ); 
+  $form['#attributes']['enctype'] = "multipart/form-data";
+  $form['#validate'][] = 'beast_add_audio_uploadform_validate';   
+  return $form;  
+}
+function beast_add_audio_uploadform_validate($form, &$form_state) {  
+  $validators = array('file_validate_extensions' => array('mp3'));
+  //drupal_set_message('beast_syndicated_audio_upload_validate'); 
+  //drupal_set_message("<pre>". print_r($form_state['values'], true)."</pre>");    
+  $dir ='public://' . variable_get('beast_files_folder', 'files') .'/audio';
+  $filename = $form_state['values']['beast_syndicated_audio_upload_filename'];
+  $dest_uri = $dir . '/' . $filename;
+  if (!file_prepare_directory($dir, TRUE)) { 
+    form_set_error('', t('Could not create directory @dir.', array('@dir' => $dir))); 
+  }   
+  if ($file = file_save_upload('beast_syndicated_audio_upload', $validators, $dir, FILE_EXISTS_RENAME)) {  
+    //drupal_set_message("Saved file to {$file->uri}"); 
+    $file->status = FILE_STATUS_PERMANENT;
+    $file->type = 'audio';     
+    $file = file_save($file);   
+    if ($file->uri != $dest_uri) file_move($file, $dest_uri, FILE_EXISTS_REPLACE);  
+   // drupal_set_message("<pre>" . print_r($file, true) . "</pre>");
+    $file = file_load($file->fid); // to get new uri
+    $file->filename = $filename; // to set new filename
+    file_save($file);
+    // drupal_set_message("<pre>" . print_r($file, true) . "</pre>");
+    
+    // save file to file field 
+    $file->display = '1';  
+    $node = node_load($form_state['values']['beast_syndicated_audio_upload_nid']); 
+    $node->field_audio[$node->language][0] = (array) $file; 
+    $node->field_reader[LANGUAGE_NONE][0]['uid'] = $GLOBALS['user']->uid;
+    variable_set('beast_last_submitted_' . $GLOBALS['user']->uid, time()); 
+    node_submit($node);
+    node_save($node);  
+    drupal_set_message(t('Thank you. The MP3 file was saved and it\'s page was removed from the list below. <br> Please proceed to the next audio reading.'));
+    $form_state['redirect'] = 'admin/needs-audio';
+  }
+  else form_set_error('', t('File upload failed.')); 
+}  
+
+// contributor add spintax fields
+function _beast_validate_spintax($text, $min=5, &$error) {
+  $error ='';
+  foreach (count_chars($text, 1) as $asc=>$count) $c[chr($asc)] = $count; 
+  if (!isset($c['{']) || !isset($c['}'])) $error = t('spintax seems to have wrong curly bracket count.');  
+  elseif (($c['{'] < $min) || ($c['|'] < $min*3)) $error = t('spintax needs more spin options.');  
+  return !$error;
+}
+function beast_add_spintax_uploadform($form, &$form_state, $node) { 
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css'); 
+  drupal_add_js(drupal_get_path('module', 'beast') .'/article_spintax.js', 'file');
+  
+  
+  $form['beast_syndicated_audio_upload_nid'] = array(
+    '#type'       => 'hidden',
+    '#value'      => $node->nid,  
+  ); 
+  
+ $form['header'] = array(
+   '#markup'  => "<h1>Spintax conversion of: <i></i>\"{$node->title}\"</i></h1>" .  
+         "<p> <b>Important Notes:</b> </p><ul>
+         <li> Articles are about 500 words, spintax is to be flat (not nested) and in the standard {...|...|...} format. </li>
+         <li>Readability is the goal so only provide spin options when they read well for humans. </li>
+         <li>There may be a few grammatical errors in the original text (they are being proofed simultaneously, sorry). Please just correct errors you see in the spintax.</li>
+         <li><i>Finally, and the most important point</i>: the sub-headers are very very important. You will see them as single line items starting with \"###\". <i>Those are the most important content on the page</i> so spin them carefully and completely. I should not be able to recognize the sub-headers between spins.</li></ul> 
+         <br>",
+   '#weight' => -10,
+ );
+  
+  $form['tabs'] = array(
+      '#type'           => 'vertical_tabs', 
+      '#collapsible'    => TRUE, 
+  );  
+ // title 
+ $form['tabs']['spintax_upload_form_title'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Title'),  
+      '#collapsible'    => TRUE,  
+      '#weight'  => -5,
+      '#description' => "<h3>Article Title Spintax</h3>", 
+  ); 
+  if (isset($node->field_spintax_title[LANGUAGE_NONE][0]['value']))
+    $spin_title = trim($node->field_spintax_title[LANGUAGE_NONE][0]['value']);
+  if (!$spin_title) $spin_title = $node->title;
+  $form['tabs']['spintax_upload_form_title']['spintax_title'] = array(
+    //'#title'   => t('Article Title'), 
+    '#type' => 'textarea',
+    '#default_value' => $spin_title,
+    '#suffix' => "<div class='original_text hidden'><a class='toggle' href='#'> Original Title...</a><div class='unspun_text title'>" . 
+      $node->title  
+    . "</div></div>",
+    '#required' => TRUE,
+  );  
+  
+  // summary
+  $form['tabs']['spintax_upload_form_summary'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Summary'), 
+      '#description' => "<h3>Article Summary Spintax</h3>", 
+      '#collapsible'    => TRUE, 
+      '#collapsed'      => TRUE,
+      '#weight'  => -4,
+  );
+  if (isset($node->field_spintax_body[LANGUAGE_NONE][0]['summary']))
+    $summary = trim($node->field_spintax_body[LANGUAGE_NONE][0]['summary']);
+  if (!$summary) $summary = beast_cleanup_bodytext(strip_tags($node->body[LANGUAGE_NONE][0]['summary'])); 
+  if (!$summary) $summary = beast_cleanup_bodytext(strip_tags($node->body[LANGUAGE_NONE][0]['value']), TRUE);
+  $form['tabs']['spintax_upload_form_summary']['spintax_summary'] = array( 
+    '#type' => 'textarea',
+    '#default_value' => $summary,
+    '#suffix' => "<div class='original_text hidden'><a class='toggle' href='#'> Original Summary...</a><div class='unspun_text summary'>" . 
+       str_replace("\n", "<br>", $summary)  
+    . "</div></div>", 
+    '#required' => TRUE,
+    '#rows'   => 8,
+  );
+  
+  // body 
+  $form['tabs']['spintax_upload_form_body'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('Body'),  
+      '#description' => "<h3>Article Body Text Spintax</h3>", 
+      '#collapsible'    => TRUE, 
+      '#collapsed'      => TRUE,
+      '#weight'  => -3,
+  ); 
+  if (isset($node->field_spintax_body[LANGUAGE_NONE][0]['value']))
+    $body = trim($node->field_spintax_body[LANGUAGE_NONE][0]['value']);
+  if (!$body) $body = beast_cleanup_bodytext(strip_tags($node->body[LANGUAGE_NONE][0]['value'])); 
+  $form['tabs']['spintax_upload_form_body']['spintax_body'] = array(
+    //'#title'   => t('Article Body'), 
+    '#type' => 'textarea',
+    '#default_value' => $body,
+    '#suffix' => "<div class='original_text hidden'><a class='toggle' href='#'> Original Body Text...</a><div class='unspun_text body'>" . 
+       str_replace("\n", "<br>", $body)
+    . "</div></div>",  
+    '#required' => TRUE,
+    '#rows'   => 15,
+  );  
+    
+  $form['spintax_upload_form']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#weight' => 5,
+  ); 
+  
+  $form['spintax_upload_form']['beast_link_markup'] = array( 
+    '#markup' => "<h1 style='text-align:center; width:100%'>" . 
+      l(t('Other content needing spintax >>'), 'admin/needs-spintax') . "</h1>",
+    '#weight'=> 15,
+  );
+   
+  $form['#validate'][] = 'beast_add_spintax_uploadform_validate';   
+  $form['#submit'][] = 'beast_add_spintax_uploadform_submit';    
+  return $form;  
+}
+function beast_add_spintax_uploadform_validate($form, &$form_state) { 
+  $f = $form_state['values'];   
+  if (!$f['beast_syndicated_audio_upload_nid']) {
+    form_set_error('', 'Oops, missing node id' );
+    return;
+  }
+ 
+  if (!_beast_validate_spintax($f['spintax_title'], 5, &$error))
+    form_set_error('spintax_title', 'Title: ' . $error);
+    
+  if (!_beast_validate_spintax($f['spintax_summary'], 5, &$error))
+    form_set_error('spintax_summary', 'Summary: ' . $error);
+    
+  if (!_beast_validate_spintax($f['spintax_body'], 15, &$error))
+    form_set_error('spintax_body', 'Body: ' . $error);  
+}
+function beast_add_spintax_uploadform_submit($form, &$form_state) {
+  //drupal_set_message('beast_add_spintax_uploadform_submit');
+  $f = $form_state['values'];  
+  //drupal_set_message('Saving to node: ' . $f['beast_syndicated_audio_upload_nid']);
+  $node = node_load($f['beast_syndicated_audio_upload_nid']);
+  $spintax_title = $f['spintax_title'];
+  $spintax_summary = $f['spintax_summary'];
+  $spintax_body = $f['spintax_body']; 
+  //drupal_set_message("spintax_title len: ".strlen($spintax_title));
+  //drupal_set_message("spintax_summary len: ".strlen($spintax_summary));
+  //drupal_set_message("spintax_body len: ".strlen($spintax_body)); 
+  $node->field_spintax_title[LANGUAGE_NONE][0]['value'] = $spintax_title;
+  $node->field_spintax_body[LANGUAGE_NONE][0]['summary'] = $spintax_summary;
+  $node->field_spintax_body[LANGUAGE_NONE][0]['value'] = $spintax_body;
+  $node->field_spinner[LANGUAGE_NONE][0]['uid'] = $GLOBALS['user']->uid; 
+  variable_set('beast_last_submitted_' . $GLOBALS['user']->uid, time()); 
+  node_submit($node);
+  node_save($node);  
+  drupal_set_message(t('Thank you. The spintax data was saved and it\'s page was removed from the list below. <br> Please proceed to the next article spinning.'));
+  drupal_goto('admin/needs-spintax');
+}
+
+// ariticle promotion form
+function beast_article_prmote_form($form, &$form_state, $node) { 
+  //drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css'); 
+  drupal_add_js(drupal_get_path('module', 'beast') .'/article_promotion.js', 'file');
+  
+  $form['beast_article_promote_nid'] = array(
+    '#type'       => 'hidden',
+    '#value'      => $node->nid,  
+  ); 
+  $form['tabs'] = array(
+      '#type'           => 'vertical_tabs', 
+      '#collapsible'    => TRUE, 
+  );  
+  
+  
+  // ==============================================================
+  $logo = '<img src="http://www.spindistribute.com/images/logo.gif" align="right" style="margin-top:-27px; margin-right:-40px; width: 150px; border:1px solid silver; border-bottom:0;" />';
+  $form['tabs']['spindistribute.com'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('spindistribute.com'),  
+      '#collapsible'    => TRUE,   
+      '#description'    => $logo . t('Inexpensive distribution with spinnable resource boxes. ').
+        l('[submission page]', 'http://www.spindistribute.com/cp-order-distributions', 
+          array('attributes' => array('target' => '_blank'))),  
+  );    
+  $form['tabs']['spindistribute.com']['spindis_title'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Spintax Title"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 2,
+      '#default_value'  => $node->field_spintax_title[LANGUAGE_NONE][0]['value'], 
+      '#attributes'     => array('class' => array('readonly')),
+  );  
+  $form['tabs']['spindistribute.com']['spindis_summary'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Spintax Summary"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 3,
+      '#default_value'  => $node->field_spintax_body[LANGUAGE_NONE][0]['summary'], 
+      '#attributes'     => array('class' => array('readonly')),
+  );   
+  $form['tabs']['spindistribute.com']['spindis_body'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Spintax Body"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 4,
+      '#default_value'  => $node->field_spintax_body[LANGUAGE_NONE][0]['value'], 
+      '#attributes'     => array('class' => array('readonly')),
+  );
+  $form['tabs']['spindistribute.com']['spindis_author'] = array(
+      '#type'           => 'textfield',
+      '#title'          => t("Author Name"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#size'           => 30, 
+      '#default_value'  => ucwords($node->name), 
+      '#attributes'     => array('class' => array('readonly')), 
+  );  
+  $form['tabs']['spindistribute.com']['spindis_resource_html'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("About the Author, HTML"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 4,
+      '#default_value'  => beast_generate_resource_box_spintax($node, TRUE), 
+      '#attributes'     => array('class' => array('readonly')),
+  );
+  $form['tabs']['spindistribute.com']['spindis_resource_nohtml'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("About the Author, no HTML"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 4,
+      '#default_value'  => beast_generate_resource_box_spintax($node, FALSE), 
+      '#attributes'     => array('class' => array('readonly')),
+  );  
+  $form['tabs']['spindistribute.com']['spindis_resource_keywords'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Keywords"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 2,
+      '#default_value'  => beast_top_page_keywords($node, 10, 200), 
+      '#attributes'     => array('class' => array('readonly')),
+  ); 
+  
+  
+  
+  
+  
+  $form['beast_node_promoted'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('This Article has been submitted to all directories'),
+    '#value' => $node->field_submitted[LANGUAGE_NONE][0]['value'],
+  ); 
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'), 
+  ); 
+  
+  $form['other_pages_to_promote_markup'] = array( 
+    '#markup' => "<h1 style='text-align:center; width:100%'>" . 
+      l(t('Other content needing prmoted >>'), 'admin/needs-promoted') . "</h1>",
+    '#weight'=> 15,
+  );
+   
+  //$form['#validate'][] = 'beast_add_content_form_validate';   
+  $form['#submit'][] = 'beast_article_prmote_form_submit';  
+  return $form;
+}
+function beast_article_prmote_form_submit($form, &$form_state) {
+   //drupal_set_message('beast_add_spintax_uploadform_submit');
+  $f = $form_state['values'];  
+  //drupal_set_message('Saving to node: ' . $f['beast_syndicated_audio_upload_nid']);
+  $node = node_load($f['beast_article_promote_nid']); 
+  $node->field_promoter[LANGUAGE_NONE][0]['uid'] = $GLOBALS['user']->uid; 
+  variable_set('beast_last_submitted_' . $GLOBALS['user']->uid, time()); 
+  node_submit($node);
+  node_save($node);  
+  drupal_set_message(t('Thank you. The spintax data was saved and it\'s page was removed from the list below. <br> Please proceed to the next article spinning.'));
+  drupal_goto('admin/needs-spintax');
+}
+function beast_generate_resource_box_spintax($node, $html = TRUE) {
+  /*
+[author-name] {writes for|is a contributor at|contributes writing to} [site-link]. {More information|Similar work|The original research|Additional information} {is available at|is published at|can be found at|is available at} [page-link]. [author-name] also contributed to [site-link]
+   */  
+  $site_url = $GLOBALS['base_url'];
+  $host = parse_url($site_url, PHP_URL_HOST);
+  $page_url = url('node/' . $node->nid, array('absolute' => TRUE));
+  // top goals for page
+  $top_page_goals = blink_top_goals_random(5, 5, $page_url);
+  if ($top_page_goals) foreach ($top_page_goals as $goal) {
+    $top_page_links[] = l($goal['kw'], $goal['url']);
+    $top_page_urls[] = $goal['url'];
+  }
+  $top_page_links_spintax = '{' . implode('|', $top_page_links) . '}';
+  $top_page_urls_spintax = '{' . implode('|', $top_page_urls) . '}';
+  // top goals for site
+  $top_site_goals = blink_top_goals_random(20, 20);  
+  if ($top_site_goals) foreach ($top_site_goals as $goal) {
+    $top_site_links[] = l($goal['kw'], $goal['url']);
+    $top_site_urls[] = $goal['url'];
+  }
+  $top_site_links_spintax = '{' . implode('|', $top_site_links) . '}';
+  $top_site_urls_spintax = '{' . implode('|', $top_site_urls) . '}';
+   
+  // apply template
+  $details = array(
+    'author-name' => ucwords($node->name),
+    'page-link' => $html ? $top_page_links_spintax : $top_page_urls_spintax,
+    'site-link' => $html ? $top_site_links_spintax : $top_site_urls_spintax,
+  );
+  return _beast_applytemplate(variable_get('beast_resource_box',''), $details); 
+}
+function beast_top_page_keywords($node, $count=10, $maxlen=200) {
+  if (!module_exists('blink')) {
+    return beast_keyword_list_cleanup($node->field_initial_keywords[LANGUAGE_NONE][0]['value'], $maxlen);
+  }
+  else { 
+    $page_url = url('node/' . $node->nid, array('absolute' => TRUE));
+    $page_goals = blink_top_goals_random($count*5, $count, $page_url); 
+    if (count($page_goals) < $count) {
+      $site_goals = blink_top_goals_random($count*5, $count); 
+      foreach ($page_goals as $goal) $goals[$goal['kw']] = $goal['kw'];
+      foreach ($site_goals as $goal) if (count($goals)<$count) $goals[$goal['kw']] = $goal['kw'];
+    }
+    return beast_keyword_list_cleanup(array_keys($goals), $maxlen);
+  }
+}
+
+
+// Alter nodes to cleanup text and add 'approved' checkbox - hook_form_FORM_ID_alter()
+function beast_form_article_node_form_alter(&$form, &$form_state, $form_id) {
+  //if ($form_id === 'article_node_form') drupal_set_message("hooking article_node_form");
+  // add form field for 'approved'
+  $proofread = $form['options']['promote'];
+  unset($form['options']['promote']);
+  $proofread['#title'] = t('Proofread and Approved');
+  $form['promote'] = $proofread;
+  //beast_r($form);
+  $form['#submit'][] = 'beast_content_node_alter_keyword_cleanup';
+}
+function beast_content_node_alter_keyword_cleanup(&$form, &$form_state) { 
+  // cleanup keywords list
+  if (isset($form_state['values']['field_initial_keywords'][LANGUAGE_NONE][0]['value']))
+    $form_state['values']['field_initial_keywords'][LANGUAGE_NONE][0]['value'] = 
+      beast_keyword_list_cleanup($form_state['values']['field_initial_keywords'][LANGUAGE_NONE][0]['value'], 80);  
+  // cleanup body text
+  if (isset($form_state['values']['body'][LANGUAGE_NONE][0]['value']))   
+    $form_state['values']['body'][LANGUAGE_NONE][0]['value'] = 
+      beast_cleanup_bodytext($form_state['values']['body'][LANGUAGE_NONE][0]['value']);  
+}
+ 
+
+ 
+// example form for grabbing the actual node edit form - fails with file uploads
+function beast_node_audio_edit_form_unused($node) {  
+ /* module_load_include('inc', 'audiofield', 'audiofield.module'); 
+  module_load_include('inc', 'audiofield', 'audio.field.inc');
+  module_load_include('inc', 'audiofield', 'audiofield_formatter.inc');*/
+  //ctools_include('node.pages', 'node', '');
+  module_load_include('inc', 'node', 'node.pages');  
+  //node_object_prepare($node); 
+  $form = drupal_get_form('article_node_form', $node); 
+  $hide = array('title','status','comment','promote','sticky','language',
+    'body', 'field_spintax_title', 'field_spintax_body', 'field_spintax_resource', 
+    'field_initial_keywords', 'field_related_product', 'field_syndicated_backlinks',
+    'group_promotion', 'field_image',
+    'group_syndicate', 'field_spintax_backlinks', 'field_submitted',
+    'group_backlinks', 'field_detected_backlinks', 'field_top_keywords',
+    'redirect', 'path', 'xmlsitemap', 'field_content_type', 'author', 'options',
+    'actions', 'created', 'additional_settings', 'revision_information',
+    'scheduler_settings'); 
+  
+  foreach($form['#groups'] as $key=>$item) if (in_array($key, $hide)) unset($form['#groups'][$key]);  
+  foreach($form['#group_children'] as $key=>$item) if (in_array($key, $hide)) unset($form['#group_children'][$key]); 
+  unset($form['#group_children']['group_article_media']); 
+  unset($form['#group_children']['field_audio']); 
+  unset($form['group_article_media']); 
+  foreach($form as $key=>$item) if (in_array($key, $hide)) unset($form[$key]);   
+ /* */
+  $result = "<h3>MP3 Upload for <i>\"{$node->title}\"</i></h3>";
+  $result .= "<p> <i>Audio should be recorded in Mono at 44100 Hz, 128 kbps.</i> </p>";
+  $result .= drupal_render($form); 
+  return $result;  
+}
+ 
+/**
+ * Implements hook_cron().
+ */
+function beast_cron() {  
+  // update keywords in blink daily 
+  if (variable_get('beast_last_blink_update', 0) < strtotime('-1 hour')) { 
+    beast_update_blink_initial_keywords_cronjob();
+    variable_set('beast_last_blink_update', REQUEST_TIME);
+  }
+  
+  // clear out old rss cache files every hour or so
+  if (variable_get('beast_last_remove_old_rss_cachefiles', 0) < strtotime('-1 hour')) { 
+    beast_remove_old_rss_cachefiles_cronjob();
+    variable_set('beast_last_remove_old_rss_cachefiles', REQUEST_TIME);
+  }
+  
+  beast_notify_contributors_crontask();
+  beast_autopublish_articles_crontask(); 
+}
+function beast_remove_old_rss_cachefiles_cronjob($force=FALSE) { 
+  $refresh_from = variable_get("beast_last_article_update", strtotime('-1 month')); 
+  if ($force) $refresh_from = strtotime('now');
+  
+  // delete all RSS files
+  $dir = drupal_realpath('public://rss/rss/');
+  if ($dp = @opendir($dir)) {
+    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+    @closedir($dp); 
+    @rmdir($dir);
+  } 
+  // delete all Podcast files
+  $dir = drupal_realpath('public://rss/podcast/');
+  if ($dp = @opendir($dir)) {
+    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+    @closedir($dp);
+    @rmdir($dir); 
+  }
+  // delete all Review RSS files
+  $dir = drupal_realpath('public://rss/reviews/');
+  if ($dp = @opendir($dir)) {
+    while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+    @closedir($dp); 
+    @rmdir($dir);
+  } 
+}
+function beast_update_blink_initial_keywords_cronjob() {  
+  if (!module_exists('blink')) return; 
+  $source = "initial-keywords";
+  variable_set("{$source}_blink_readonly", TRUE);
+  variable_set("{$source}_blink_weight", -5);
+  variable_set("{$source}_blink_description", t('("beast" module) These are "best guess" or "early target" keywords drawn from the "Initial Keywords" field in syndicated content and affiliated products. Note: if KWGOALS module is enabled, any keywords in the KWGOALS list will be removed from this list automatically.')); 
+  
+  // remove old beast goals
+  //$beast_goals = blink_get_keyword_goals('beast'); // returns full record array
+  //foreach ($beast_goals as $beast_goal) blink_delete_keyword_goal($beast_goal, 'beast'); 
+  
+  // get list of goals from blink
+  $beast_goals = blink_get_keyword_goals($source); // returns full record array
+  drupal_set_message(count($beast_goals) . " {$source} goals");
+  // build index by keyword group, since initial_keywords are not unique
+  if ($beast_goals) foreach ($beast_goals as $goal) $beast_index[$goal['kw']][] = $goal;
+  
+  // gather up list of indexed kwgoal links
+  $kwgoals = blink_get_keyword_goals('best-google-hits'); // returns full record array
+  drupal_set_message(count($kwgoals) . " best-google-hits goals");
+  // build index by keyword, since kwgoals keywords are unique
+  if ($kwgoals) foreach ($kwgoals as $goal) $kwgoals_index[$goal['kw']] = $goal; 
+
+  // pull out list of all initial_keyword field, using EFQ. Hope this is fast, sure miss SQL!
+  $query = new EntityFieldQuery();
+  $entities = $query->entityCondition('entity_type', 'node')
+                  //  ->entityCondition('bundle', array('article', 'affilite_product'), 'IN')
+                    ->fieldCondition('field_initial_keywords')
+                    ->propertyCondition('status', 1)  
+                    ->execute(); 
+  $nodes = node_load_multiple(array_keys($entities['node'])); // ouch, all for just nid and a single field
+  
+  // gather up list of all keywords with associated nid  
+  if (count($nodes)) foreach ($nodes as $node) {
+    if ($initial_keywords = $node->field_initial_keywords[LANGUAGE_NONE][0]['safe_value']) {
+      $kws = explode(',', $initial_keywords);
+      foreach ($kws as $kw) $node_kws[strtolower(trim($kw))][$node->nid] = $node->nid; 
+    }
+  } 
+  // Loop through current node keywords and delete them if they are in kwgoals list
+  if ($node_kws) foreach ($node_kws as $kw => $nids) {
+    if (isset($kwgoals_index[$kw])) {
+      // if in beast blink list, remove all matching goals from blink
+      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) blink_delete_keyword_goal($goal, 'beast'); 
+      // remove from blink list
+      unset($node_kws[$kw]);
+      drupal_set_message("Removed keyword '{$kw}' goal from {$source} list because it was found in best-google-hits");
+    }
+  }
+  // loop through current goals and delete them if they are not in current keywords
+  if (isset($beast_goals)) foreach ($beast_goals as $beast_goal) {
+    // if goal kw and url not found in keywords list
+    $kw = $beast_goal['kw'];
+    $url = $beast_goal['url'];
+    $delete = TRUE;
+    // we don't delete if we can locate a keyword/url pair matching this goal
+    if ($node_kws[$kw]) foreach ($node_kws[$kw] as $nid)
+      if (url('node/' . $nid, array('absolute' => TRUE)) == $url) $delete = FALSE;   
+    if ($delete) {
+      blink_delete_keyword_goal($beast_goal, $source);
+      drupal_set_message("Deleted {$source} goal as a match was found in best-google-hits '{$kw}' '{$url}'");
+    }
+  }
+  // loop through the current node keywords and add them if they are not in the current goals
+  if ($node_kws) foreach ($node_kws as $kw => $nids) {
+    foreach ($nids as $nid) {
+      $found = FALSE;
+      $url =  url('node/' . $nid, array('absolute' => TRUE));
+      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) if ($goal['url'] == $url) $found = TRUE;  
+      if (!$found) {
+        blink_add_keyword_goal($kw, $url, variable_get('beast_initial_keyword_weight', 1), $source);
+        drupal_set_message("Added new {$source} goal '{$kw}' '{$url}'");
+      }
+    } 
+  }
+}
+
+function beast_notify_contributors_crontask() {
+  if (strtotime('-1 hour') > variable_get('beast_last_notify_contributor_check', strtotime('-2 hours'))) return;
+  variable_set('beast_last_notify_contributor_check', time()); 
+  $uids[] = variable_get('beast_checklist_user_writer', 0);
+  $uids[] = variable_get('beast_checklist_user_editor', 0);
+  $uids[] = variable_get('beast_checklist_user_reader', 0);
+  $uids[] = variable_get('beast_checklist_user_spinner', 0);
+  $uids[] = variable_get('beast_checklist_user_promoter', 0);
+  foreach ($uids as $uid) $list[$uid] = $uid; // remove dups
+  foreach ($list as $uid) beast_notify_contributor($uid); 
+}
+function beast_autopublish_articles_crontask() {  
+  if (strtotime('-1 hour') > variable_get('beast_last_autopublish_check', strtotime('-2 hours'))) return;
+  variable_set('beast_last_autopublish_check', time()); 
+   
+  $last_published_date = variable_get('beast_last_queued_publication_date', 0);
+  $frequency = variable_get('beast_schedule_frequency', 5);  
+  $min_published = variable_get('beast_schedule_min', 9);  
+  $published_count = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=1 AND promote=1")->fetchField();   
+  if (($last_published_date > strtotime("$frequency day")) && ($published_count >= $min_published)) return; 
+  
+  // time to publish an article
+  $queued_articles = views_get_view_result('beast_articles', 'page_6');  
+  if (count($queued_articles)) {
+    shuffle($queued_articles);
+    $nid = $queued_articles[0]->nid;
+    $node = node_load($nid);
+    $node->status = 1;
+    $node->created = time();
+    $node->updated = time();
+    node_submit($node);
+    node_save($node); 
+    if ($editor = variable_get('beast_checklist_user_editor', 0)) {
+      $editor = user_load($editor); 
+      $msg = "New article published on {$GLOBALS['base_url']}";
+      $url = url('node/' . $node->nid, array('absolute' => TRUE));
+      $params = array(
+        'subject' => $msg,
+        'body' => $msg . ' ' . $url,
+      ); 
+      drupal_mail('beast', 'notification', $editor->mail, language_default(), $params);
+    }    
+  } 
+}
+function beast_notify_contributor($uid, $force=FALSE) {  
+  // last time this user was notified
+  $last_notify = variable_get('beast_last_submitted_' . $spinner->uid, 0);
+  if ($last_notify && ($last_notify > strtotime('-2 day')) && !$force) return;
+  
+  $msg = array();
+  
+  // notify this user of any pending notifications
+  $writer =    variable_get('beast_checklist_user_writer', 0);
+  $editor =    variable_get('beast_checklist_user_editor', 0);
+  $reader =    variable_get('beast_checklist_user_reader', 0);
+  $spinner =   variable_get('beast_checklist_user_spinner', 0);
+  $promoter =  variable_get('beast_checklist_user_promoter', 0);
+  
+  if (($writer === $uid) && ($needs_writing = count(views_get_view_result('beast_articles', 'page_2')))) { 
+    $writing_link_url = url('admin/needs-content', array('absolute' => TRUE));
+    $msg[] = "{$needs_writing} article assignments need content: {$writing_link_url}";  
+  } 
+  if (($editor === $uid) && ($needs_proofread = count(views_get_view_result('beast_articles', 'page_3')))) { 
+    $proofing_link_url = url('admin/needs-proofread', array('absolute' => TRUE));
+    $msg[] = "{$needs_proofread} articles need proofreading: {$proofing_link_url}";  
+  }
+  if (($reader === $uid) && ($needs_audio = count(views_get_view_result('beast_articles', 'page')))) { 
+    $audio_link_url = url('admin/needs-audio', array('absolute' => TRUE));
+    $msg[] = "{$needs_audio} articles need audio reading: {$audio_link_url}";  
+  }
+  if (($spinner === $uid) && ($needs_spintax = count(views_get_view_result('beast_articles', 'page_1')))) { 
+    $spintax_link_url = url('admin/needs-spintax', array('absolute' => TRUE));
+    $msg[] = "{$needs_spintax} articles need spintax spinning: {$spintax_link_url}";  
+  }
+  if (($promoter === $uid) && ($needs_promotion = count(views_get_view_result('beast_articles', 'page_1')))) { 
+    $promotion_link_url = url('admin/needs-promoted', array('absolute' => TRUE));
+    $msg[] = "{$needs_promotion} published articles need promotion: {$promotion_link_url}";  
+  }
+  
+  if (count($msg)) { // email to both uid and editor
+    $user = user_load($uid); 
+    $params = array(
+      'subject' => 'Content task reminder at '. url('/', array('absolute' => TRUE)),
+      'body' => 'Content task reminder at '. url('/', array('absolute' => TRUE)) . "\n\n" . explode("\n", $msg),
+    );
+    // email user
+    drupal_mail('beast', 'notification', $user->mail, language_default(), $params);
+    // copy editor
+    if ($editor && ($editor != $uid)) {
+       $editor = user_load($editor); 
+       drupal_mail('beast', 'notification', $editor->mail, language_default(), $params);
+    }
+  } 
+}
+function beast_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'notification':
+      // note: data can be passed to this function in the $params array
+      $message['subject'] = $params['subject'];
+      $message['body'] = $params['body']; 
+      break;   
+  }
+}
+
+ 
+function beast_editor_dashboard() { 
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');   
+ 
+ $needs_writing = count(views_get_view_result('beast_articles', 'page_2'));      
+  $writing_link_url = url('admin/needs-content', array('absolute' => TRUE));
+ 
+ $needs_proofread = count(views_get_view_result('beast_articles', 'page_3')); 
+  $proofing_link_url = url('admin/needs-proofread', array('absolute' => TRUE));
+ 
+ $needs_audio = count(views_get_view_result('beast_articles', 'page'));        
+  $audio_link_url = url('admin/needs-audio', array('absolute' => TRUE));
+  
+ $needs_spintax = count(views_get_view_result('beast_articles', 'page_1'));       
+  $spintax_link_url = url('admin/needs-spintax', array('absolute' => TRUE));
+ 
+ $needs_promotion = count(views_get_view_result('beast_articles', 'page_5'));     
+  $promotion_link_url = url('admin/needs-promoted', array('absolute' => TRUE));
+  
+ $published = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=1 AND promote=1")->fetchField(); 
+  $published_link_url = url('admin/content', array('absolute' => TRUE));
+  
+ $queued =  count(views_get_view_result('beast_articles', 'page_6'));     
+  $queued_link_url = url('admin/queued', array('absolute' => TRUE));
+  
+  
+
+ 
+ 
+ $last_published_date = variable_get('beast_last_queued_publication_date', time());
+  $frequency = variable_get('beast_last_queued_publication_frequency', '1 week'); 
+  $articles_runout_date = date('F, Y', $queued * $frequency + $last_published_date);
+ 
+ 
+  if ($writer = variable_get('beast_checklist_user_writer', 0)) {  
+    $writer = user_load($writer); 
+    list($writer_name) = explode(' ', ucwords(format_username($writer)));  
+    $writer_last_submitted = beast_date_ago(variable_get('beast_last_submitted_' . $writer->uid, strtotime('-1 month'))); 
+    $writer_link = '<a href="mailto:' . $writer->mail . '?subject=' . 
+      'Articles needing content at '. $GLOBALS['base_url'] . '&body=' . 
+      urlencode("Hi {$writer_name}, we've got {$needs_writing} article assignments ready for you. Here's the list: {$writing_link_url}") . '" target="_blank">notify ' . $writer_name . '</a>';   
+    $writer_desc = " <div class='desc'> ({$writer_link}, last submitted content {$writer_last_submitted} days ago) </div>"; 
+    
+  } 
+  if ($reader = variable_get('beast_checklist_user_reader', 0)) {
+    $reader = user_load($reader); 
+    list($reader_name) = explode(' ', ucwords(format_username($reader)));  
+    $reader_last_submitted = beast_date_ago(variable_get('beast_last_submitted_'.$reader->uid, strtotime('-1 month'))); 
+    $reader_link = '<a href="mailto:' . $reader->mail . '?subject=' . 
+      'Articles needing audio at '. $GLOBALS['base_url'] . '&body=' . 
+      urlencode("Hi {$reader_name}, we've got {$needs_audio} articles ready for you to record. Here's the list: {$reading_link_url}") . '" target="_blank">notify ' . $reader_name . '</a>';   
+    $reader_desc = "<div class='desc'> ({$reader_link}, last submitted content {$reader_last_submitted} days ago) </div>";  
+  }
+  if ($spinner = variable_get('beast_checklist_user_spinner', 0)) {
+    $spinner = user_load($spinner); 
+    list($spinner_name) = explode(' ', ucwords(format_username($spinner))); 
+    $spinner_last_submitted = beast_date_ago(variable_get('beast_last_submitted_'.$spinner->uid, strtotime('-1 month'))); 
+    $spinner_link = '<a href="mailto:' . $spinner->mail . '?subject=' . 
+      'Articles needing spintax at '. $GLOBALS['base_url'] . '&body=' . 
+      urlencode("Hi {$spinner_name}, we've got {$needs_spintax} articles ready for you to add Spintax. Here's the list: {$spintax_link_url}") . '" target="_blank">notify ' . $spinner_name . '</a>';   
+    $spinner_desc = " <div class='desc'> ({$spinner_link}, last submitted content {$spinner_last_submitted} days ago) </div>";  
+  }
+  if ($promoter = variable_get('beast_checklist_user_promoter', 0)) {
+    $promoter = user_load($promoter); 
+    list($promoter_name) = explode(' ', ucwords(format_username($promoter))); 
+    $promoter_last_submitted = beast_date_ago(variable_get('beast_last_submitted_'.$promoter->uid, strtotime('-1 month'))); 
+    $promoter_link = '<a href="mailto:' . $promoter->mail . '?subject=' . 
+      'Articles needing promoted at '. $GLOBALS['base_url'] . '&body=' . 
+      urlencode("Hi {$promoter_name}, we've got {$needs_promotion} articles ready for you to promote. Here's the list: {$promoter_link_url}") . '" target="_blank">notify ' . $promoter_name . '</a>';   
+    $promoter_desc = " <div class='desc'> ({$promoter_link}, last submitted content {$promoter_last_submitted} days ago) </div>";  
+  }
+  
+ 
+ $sec = "<div class='site_content'><h1> Site Content </h1><ul>";
+  $sec .= "<li> " . l('Articles Published:', $published_link_url) ." <span class='val'>{$published}</span> </li>";
+  $sec .= "<li> " . l('Articles Queued:', $queued_link_url) . " <span class='val'>{$queued}</span> <span class='desc'>(we'll need more by {$articles_runout_date})</span> </li></ul>";
+ $sec .= "<h3> Pending Queues: </h3><ul>";
+ 
+  $sec .= "<li class='" . ($needs_writing? 'pending' : 'ok') . "'> " . l('Assignments needing content:', $writing_link_url) . " <span class='val'>{$needs_writing}</span>  " .
+   ($needs_writing && $writer ? $writer_desc : '') . "</li>";  
+   
+  $sec .= "<li class='" . ($needs_proofread? 'pending' : 'ok') . "' class=''> " . l('Articles needing proofread:', $proofing_link_url) . " <span class='val'>{$needs_proofread}</span>  " .
+   ($needs_proofread ? $proofing_link_url : '') . "</li>";  
+   
+  $sec .= "<li class='" . ($needs_audio? 'pending' : 'ok') . "'> " . l('Articles needing audio reading:', $audio_link_url) . " <span class='val'>{$needs_audio}</span>  " .
+   ($needs_audio && $reader ? $reader_desc : '') . "</li>";  
+   
+  $sec .= "<li class='" . ($needs_spintax? 'pending' : 'ok') . "'> " . l('Articles needing Spintax:', $spintax_link_url) . " <span class='val'>{$needs_spintax}</span>  " .
+   ($needs_spintax && $spinner ? $spinner_desc : '') . "</li>"; 
+   
+  $sec .= "<li class='" . ($needs_promotion? 'pending' : 'ok') . "'> " . l('Articles needing promotion:', $promotion_link_url) . " <span class='val'>{$needs_promotion}</span>  " .
+   ($needs_promotion && $promoter ? $promoter_desc : '') . "</li>";  
+   
+  $content .= $sec . '</div>';
+  
+  return $content;
+}
 
 function beast_node_insert($node) {
   // delete cached RSS pages
@@ -786,7 +2097,7 @@ function beast_init() {
     'type' => 'application/rss+xml', 
     'title' => variable_get('beast_rss_title',''), 
     'href' => url('rss', array('absolute' => TRUE)),
-  )); 
+  ));  
 }
 
 
@@ -795,6 +2106,9 @@ function beast_show_rss() {
   // pull out type and ip 
   list($ip, $type) = array_reverse(explode('/', $_GET['q']));  
   $ip = basename($ip, '.xml');
+  
+  //echo "Hello World";  return;
+  
   
   // generate random seeded feed fields
   srand(ip2long($ip)); 
@@ -814,27 +2128,13 @@ function beast_show_rss() {
   // save to file 
   $rss_dir =  'public://rss/' . $type . '/';
   $filepath = drupal_realpath($rss_dir . $ip . '.xml');
-  if (file_prepare_directory($rss_dir, FILE_CREATE_DIRECTORY))
-     file_put_contents($filepath, $xml);  
-  //    file_save_data($xml, $rss_dir . $ip . '.xml', FILE_EXISTS_REPLACE);
+  if (file_prepare_directory($rss_dir, FILE_CREATE_DIRECTORY)) 
+    file_put_contents($filepath, $xml);   
   
   // remove any files that are old   
-  beast_remove_old_rss_cachefiles_cronjob();
-  
-  /* // got rid of this because it's slow and we've improved the shorturl process a lot
-  // update the externalize link table so that the next request will have short urls
-  if (module_exists('blink_externalize') && blink_externalize_needed()) {
-    blink_externalize_update_blink_cronjob(); // externalizes urls
-    // generate random seeded feed fields
-    srand(ip2long($ip));  $fields = _beast_rss_fields($type, $ip);  srand(); // reset random seed 
-    if (in_array($type, array('rss', 'reviews'))) $xml = beast_rsstools::rss_xml($fields);   
-      else if ($type == 'podcast') $xml = beast_rsstools::podcast_xml($fields); 
-    file_save_data($xml, $rss_dir . $ip . '.xml', FILE_EXISTS_REPLACE);
-  }
-  * */
+  beast_remove_old_rss_cachefiles_cronjob(); 
   exit;
-}
-
+} 
 
 function beast_spintax_largeblock($text) { 
   $lines = explode("\n", $text); 
@@ -1053,7 +2353,6 @@ function beast_spintax_filter($text) {
   return beast_spintax_filter($text);
 }
 
-
 /**
  * @todo Please document this function.
  * @see http://drupal.org/node/1354
@@ -1133,6 +2432,18 @@ function _beast_duration_format($secs) {
   return implode(':', $ret);
 }
 
+function beast_keyword_list_cleanup($comma_list, $maxlen=80) {
+  if (is_array($comma_list)) $kws = $comma_list;
+   else $kws = explode(',', strtolower($comma_list));  
+  $len=0;
+  foreach ($kws as $kw)  if (str_word_count($kw) < 5) $new[trim($kw)] = trim($kw); // trim and remove dups 
+  foreach ($new as $kw) if (($len + strlen(trim($kw)) + 1) < $maxlen) {
+    $len += strlen($kw) + 1;
+    $final[] = $kw;
+  }
+  return implode(',', $final);  
+}
+
 function _beast_top_tokens($tokens, $count = 1) {
   $list = explode(',', $tokens);
   if ($list) {
@@ -1146,12 +2457,8 @@ function _beast_top_tokens($tokens, $count = 1) {
       }
     }
   }
-  if ($newlist) {
-    return implode(',', $newlist);
-  }
+  if ($newlist) return implode(',', $newlist); 
 }
-
-
  
 function beast_shorten_url($long_url, $nid = 0) {
   // requires shorten module to be set up
@@ -1166,7 +2473,56 @@ function beast_shorten_url($long_url, $nid = 0) {
   $short_url = shorten_url($long_url, $service); 
   if (!strpos($short_url, '://'.$_SERVER['SERVER_NAME'])) return $short_url;  
 }
-
  
+function beast_r($array) {
+   drupal_set_message("<pre>".print_r($array, 1)."</pre>"); 
+}
 
+function beast_cleanup_bodytext($text, $truncate_for_teaser = false) {
+  if (!trim($text)) return '';
+  // search and replace odd characters
+  $text = str_replace('’', "'", $text);
+  $text = str_replace('‘', "'", $text);
+  $text = str_replace(array('{', '['), '(', $text); // we can't use brackets because of spintax
+  $text = str_replace(array('}', ']'), ')', $text);
+  $text = str_replace("”", '"', $text);
+  $text = str_replace("“", '"', $text);
+  $text = str_replace("–", "-", $text);
+  $text = str_replace("…", "...", $text);
+  
+  // now cleanup line spacing  
+  $lines = explode("\n", $text);
+  foreach ($lines as $line) if (trim($line)) $newlines[] = $line;
+  if ($truncate_for_teaser) {
+    $len = 0;
+    foreach ($newlines as $line) {
+      if ((strlen($result) < 200) && trim($line) && (substr(trim($line), 0,3) != '###')) $result .= ' ' . $line;
+    }    
+    return $result;
+  }  
+  $result = implode("\n\n", $newlines);   
+  return $result;
+} 
 
+function beast_date_ago($date) { 
+ $then = $date;
+ $diff = time() - $then;
+ $days = floor($diff/(60*60*24));
+ return $days; 
+}
+
+function beast_contributor_penname($account) {
+  if (is_numeric($account)) $account = user_load($account);  
+  $result = trim($account->field_penname[LANGUAGE_NONE][0]['safe_value']); 
+  if (!$result) {
+    $full_name = $account->field_fullname[LANGUAGE_NONE][0]['safe_value'];
+    list($result) = explode(' ', $full_name);
+    $result = trim($result);
+  }  
+  if (!$result) {
+    $user_name = $account->name;
+    list($result) = explode(' ', $user_name);
+  }   
+  $result = ucwords($result);
+  return $result;
+}

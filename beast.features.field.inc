@@ -40,7 +40,13 @@ function beast_field_default_fields() {
     ),
     'field_instance' => array(
       'bundle' => 'article',
-      'default_value' => NULL,
+      'default_value' => array(
+        0 => array(
+          'format' => 'full_html',
+          'summary' => '',
+          'value' => '',
+        ),
+      ),
       'deleted' => '0',
       'description' => '',
       'display' => array(
@@ -70,7 +76,7 @@ function beast_field_default_fields() {
           'settings' => array(
             'trim_length' => 600,
           ),
-          'type' => 'text_trimmed',
+          'type' => 'text_summary_or_trimmed',
           'weight' => '0',
         ),
       ),
@@ -91,7 +97,7 @@ function beast_field_default_fields() {
           'summary_rows' => 5,
         ),
         'type' => 'text_textarea_with_summary',
-        'weight' => '3',
+        'weight' => '4',
       ),
     ),
   );
@@ -155,7 +161,7 @@ function beast_field_default_fields() {
           'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
-          'weight' => 0,
+          'weight' => '0',
         ),
       ),
       'entity_type' => 'node',
@@ -196,9 +202,9 @@ function beast_field_default_fields() {
       'module' => 'list',
       'settings' => array(
         'allowed_values' => array(
-          'article' => 'Opinion',
+          'article' => 'Tech Guide',
           'blog' => 'Blog Post',
-          'review' => 'Review',
+          'review' => 'Product Review',
         ),
         'allowed_values_function' => '',
       ),
@@ -244,7 +250,7 @@ function beast_field_default_fields() {
       ),
       'entity_type' => 'node',
       'field_name' => 'field_content_type',
-      'label' => 'Content Type',
+      'label' => 'Article Type',
       'required' => 1,
       'settings' => array(
         'user_register_form' => FALSE,
@@ -259,50 +265,70 @@ function beast_field_default_fields() {
     ),
   );
 
-  // Exported field: 'node-article-field_detected_backlinks'
-  $fields['node-article-field_detected_backlinks'] = array(
+  // Exported field: 'node-article-field_editor'
+  $fields['node-article-field_editor'] = array(
     'field_config' => array(
       'active' => '1',
       'cardinality' => '1',
       'deleted' => '0',
       'entity_types' => array(),
-      'field_name' => 'field_detected_backlinks',
+      'field_name' => 'field_editor',
       'foreign keys' => array(
-        'format' => array(
+        'uid' => array(
           'columns' => array(
-            'format' => 'format',
+            'uid' => 'uid',
           ),
-          'table' => 'filter_format',
+          'table' => 'users',
         ),
       ),
       'indexes' => array(
-        'format' => array(
-          0 => 'format',
+        'uid' => array(
+          0 => 'uid',
         ),
       ),
-      'module' => 'text',
-      'settings' => array(),
-      'translatable' => '1',
-      'type' => 'text_long',
+      'module' => 'user_reference',
+      'settings' => array(
+        'referenceable_roles' => array(
+          2 => 0,
+          3 => 0,
+          4 => '4',
+          5 => 0,
+        ),
+        'referenceable_status' => array(
+          0 => 0,
+          1 => 0,
+        ),
+        'view' => array(
+          'args' => array(),
+          'display_name' => '',
+          'view_name' => '',
+        ),
+      ),
+      'translatable' => '0',
+      'type' => 'user_reference',
     ),
     'field_instance' => array(
       'bundle' => 'article',
-      'default_value' => NULL,
+      'default_value' => array(
+        0 => array(
+          'uid' => '38',
+        ),
+      ),
       'deleted' => '0',
       'description' => '',
       'display' => array(
         'default' => array(
           'label' => 'above',
-          'module' => 'text',
+          'module' => 'user_reference',
           'settings' => array(),
-          'type' => 'text_default',
-          'weight' => 12,
+          'type' => 'user_reference_default',
+          'weight' => 20,
         ),
         'full' => array(
           'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
-          'weight' => '5',
+          'weight' => 0,
         ),
         'rss' => array(
           'label' => 'above',
@@ -314,25 +340,22 @@ function beast_field_default_fields() {
           'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
-          'weight' => 0,
+          'weight' => '0',
         ),
       ),
       'entity_type' => 'node',
-      'field_name' => 'field_detected_backlinks',
-      'label' => 'Detected Backlinks',
+      'field_name' => 'field_editor',
+      'label' => 'Editor',
       'required' => 0,
       'settings' => array(
-        'text_processing' => '0',
         'user_register_form' => FALSE,
       ),
       'widget' => array(
         'active' => 1,
-        'module' => 'text',
-        'settings' => array(
-          'rows' => '3',
-        ),
-        'type' => 'text_textarea',
-        'weight' => '14',
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_select',
+        'weight' => '39',
       ),
     ),
   );
@@ -514,7 +537,193 @@ function beast_field_default_fields() {
           'size' => '60',
         ),
         'type' => 'text_textfield',
-        'weight' => '2',
+        'weight' => '3',
+      ),
+    ),
+  );
+
+  // Exported field: 'node-article-field_promoter'
+  $fields['node-article-field_promoter'] = array(
+    'field_config' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_promoter',
+      'foreign keys' => array(
+        'uid' => array(
+          'columns' => array(
+            'uid' => 'uid',
+          ),
+          'table' => 'users',
+        ),
+      ),
+      'indexes' => array(
+        'uid' => array(
+          0 => 'uid',
+        ),
+      ),
+      'module' => 'user_reference',
+      'settings' => array(
+        'referenceable_roles' => array(
+          2 => 0,
+          3 => '3',
+          4 => '4',
+          5 => '5',
+        ),
+        'referenceable_status' => array(
+          0 => 0,
+          1 => '1',
+        ),
+        'view' => array(
+          'args' => array(),
+          'display_name' => '',
+          'view_name' => '',
+        ),
+      ),
+      'translatable' => '0',
+      'type' => 'user_reference',
+    ),
+    'field_instance' => array(
+      'bundle' => 'article',
+      'default_value' => NULL,
+      'deleted' => '0',
+      'description' => '',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'module' => 'user_reference',
+          'settings' => array(),
+          'type' => 'user_reference_default',
+          'weight' => 21,
+        ),
+        'full' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'rss' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '0',
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_promoter',
+      'label' => 'Article Promoter',
+      'required' => 0,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_select',
+        'weight' => '43',
+      ),
+    ),
+  );
+
+  // Exported field: 'node-article-field_reader'
+  $fields['node-article-field_reader'] = array(
+    'field_config' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_reader',
+      'foreign keys' => array(
+        'uid' => array(
+          'columns' => array(
+            'uid' => 'uid',
+          ),
+          'table' => 'users',
+        ),
+      ),
+      'indexes' => array(
+        'uid' => array(
+          0 => 'uid',
+        ),
+      ),
+      'module' => 'user_reference',
+      'settings' => array(
+        'referenceable_roles' => array(
+          2 => 0,
+          3 => 0,
+          4 => 0,
+          5 => '5',
+        ),
+        'referenceable_status' => array(
+          0 => 0,
+          1 => 0,
+        ),
+        'view' => array(
+          'args' => array(),
+          'display_name' => '',
+          'view_name' => '',
+        ),
+      ),
+      'translatable' => '0',
+      'type' => 'user_reference',
+    ),
+    'field_instance' => array(
+      'bundle' => 'article',
+      'default_value' => array(
+        0 => array(
+          'uid' => '33',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => '',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'module' => 'user_reference',
+          'settings' => array(),
+          'type' => 'user_reference_default',
+          'weight' => 17,
+        ),
+        'full' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'rss' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '0',
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_reader',
+      'label' => 'Audio Reader',
+      'required' => 0,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_select',
+        'weight' => '41',
       ),
     ),
   );
@@ -601,7 +810,102 @@ function beast_field_default_fields() {
         'module' => 'options',
         'settings' => array(),
         'type' => 'options_select',
-        'weight' => '4',
+        'weight' => '5',
+      ),
+    ),
+  );
+
+  // Exported field: 'node-article-field_spinner'
+  $fields['node-article-field_spinner'] = array(
+    'field_config' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_spinner',
+      'foreign keys' => array(
+        'uid' => array(
+          'columns' => array(
+            'uid' => 'uid',
+          ),
+          'table' => 'users',
+        ),
+      ),
+      'indexes' => array(
+        'uid' => array(
+          0 => 'uid',
+        ),
+      ),
+      'module' => 'user_reference',
+      'settings' => array(
+        'referenceable_roles' => array(
+          2 => 0,
+          3 => 0,
+          4 => 0,
+          5 => '5',
+        ),
+        'referenceable_status' => array(
+          0 => 0,
+          1 => 0,
+        ),
+        'view' => array(
+          'args' => array(),
+          'display_name' => '',
+          'view_name' => '',
+        ),
+      ),
+      'translatable' => '0',
+      'type' => 'user_reference',
+    ),
+    'field_instance' => array(
+      'bundle' => 'article',
+      'default_value' => array(
+        0 => array(
+          'uid' => '34',
+        ),
+      ),
+      'deleted' => '0',
+      'description' => '',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'module' => 'user_reference',
+          'settings' => array(),
+          'type' => 'user_reference_default',
+          'weight' => 18,
+        ),
+        'full' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'rss' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '0',
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_spinner',
+      'label' => 'Spintax Spinner',
+      'required' => 0,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_select',
+        'weight' => '42',
       ),
     ),
   );
@@ -669,8 +973,8 @@ function beast_field_default_fields() {
       'label' => 'Spintax Body',
       'required' => 0,
       'settings' => array(
-        'display_summary' => 0,
-        'text_processing' => '1',
+        'display_summary' => 1,
+        'text_processing' => '0',
         'user_register_form' => FALSE,
       ),
       'widget' => array(
@@ -681,87 +985,7 @@ function beast_field_default_fields() {
           'summary_rows' => 5,
         ),
         'type' => 'text_textarea_with_summary',
-        'weight' => '11',
-      ),
-    ),
-  );
-
-  // Exported field: 'node-article-field_spintax_resource'
-  $fields['node-article-field_spintax_resource'] = array(
-    'field_config' => array(
-      'active' => '1',
-      'cardinality' => '1',
-      'deleted' => '0',
-      'entity_types' => array(),
-      'field_name' => 'field_spintax_resource',
-      'foreign keys' => array(
-        'format' => array(
-          'columns' => array(
-            'format' => 'format',
-          ),
-          'table' => 'filter_format',
-        ),
-      ),
-      'indexes' => array(
-        'format' => array(
-          0 => 'format',
-        ),
-      ),
-      'module' => 'text',
-      'settings' => array(),
-      'translatable' => '1',
-      'type' => 'text_with_summary',
-    ),
-    'field_instance' => array(
-      'bundle' => 'article',
-      'default_value' => NULL,
-      'deleted' => '0',
-      'description' => '',
-      'display' => array(
-        'default' => array(
-          'label' => 'above',
-          'settings' => array(),
-          'type' => 'hidden',
-          'weight' => '9',
-        ),
-        'full' => array(
-          'label' => 'above',
-          'settings' => array(),
-          'type' => 'hidden',
-          'weight' => '10',
-        ),
-        'rss' => array(
-          'label' => 'above',
-          'module' => 'text',
-          'settings' => array(),
-          'type' => 'text_default',
-          'weight' => '9',
-        ),
-        'teaser' => array(
-          'label' => 'above',
-          'settings' => array(),
-          'type' => 'hidden',
-          'weight' => '9',
-        ),
-      ),
-      'entity_type' => 'node',
-      'field_name' => 'field_spintax_resource',
-      'label' => 'Spintax Resource',
-      'required' => 0,
-      'settings' => array(
-        'display_summary' => 0,
-        'text_processing' => '0',
-        'user_register_form' => FALSE,
-      ),
-      'widget' => array(
-        'active' => 1,
-        'module' => 'text',
-        'settings' => array(
-          'rows' => '5',
-          'summary_rows' => 5,
-        ),
-        'type' => 'text_textarea_with_summary',
-        'weight' => '12',
+        'weight' => '10',
       ),
     ),
   );
@@ -846,6 +1070,86 @@ function beast_field_default_fields() {
     ),
   );
 
+  // Exported field: 'node-article-field_submitted'
+  $fields['node-article-field_submitted'] = array(
+    'field_config' => array(
+      'active' => '1',
+      'cardinality' => '1',
+      'deleted' => '0',
+      'entity_types' => array(),
+      'field_name' => 'field_submitted',
+      'foreign keys' => array(),
+      'indexes' => array(
+        'value' => array(
+          0 => 'value',
+        ),
+      ),
+      'module' => 'list',
+      'settings' => array(
+        'allowed_values' => array(
+          0 => '',
+          1 => '',
+        ),
+        'allowed_values_function' => '',
+      ),
+      'translatable' => '0',
+      'type' => 'list_boolean',
+    ),
+    'field_instance' => array(
+      'bundle' => 'article',
+      'default_value' => array(
+        0 => array(
+          'value' => 0,
+        ),
+      ),
+      'deleted' => '0',
+      'description' => 'This article has been submitted to all relevant article directories and the resulting backlinking URLs have been added to the "Syndicated URLs" list.',
+      'display' => array(
+        'default' => array(
+          'label' => 'above',
+          'module' => 'list',
+          'settings' => array(),
+          'type' => 'list_default',
+          'weight' => 15,
+        ),
+        'full' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'rss' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => 0,
+        ),
+        'teaser' => array(
+          'label' => 'above',
+          'settings' => array(),
+          'type' => 'hidden',
+          'weight' => '0',
+        ),
+      ),
+      'entity_type' => 'node',
+      'field_name' => 'field_submitted',
+      'label' => 'Article Promoted',
+      'required' => 0,
+      'settings' => array(
+        'user_register_form' => FALSE,
+      ),
+      'widget' => array(
+        'active' => 1,
+        'module' => 'options',
+        'settings' => array(
+          'display_label' => 1,
+        ),
+        'type' => 'options_onoff',
+        'weight' => '13',
+      ),
+    ),
+  );
+
   // Exported field: 'node-article-field_syndicated_backlinks'
   $fields['node-article-field_syndicated_backlinks'] = array(
     'field_config' => array(
@@ -918,36 +1222,52 @@ function beast_field_default_fields() {
           'rows' => '5',
         ),
         'type' => 'text_textarea',
-        'weight' => '13',
+        'weight' => '12',
       ),
     ),
   );
 
-  // Exported field: 'node-article-field_top_keywords'
-  $fields['node-article-field_top_keywords'] = array(
+  // Exported field: 'node-article-field_writer'
+  $fields['node-article-field_writer'] = array(
     'field_config' => array(
       'active' => '1',
       'cardinality' => '1',
       'deleted' => '0',
       'entity_types' => array(),
-      'field_name' => 'field_top_keywords',
+      'field_name' => 'field_writer',
       'foreign keys' => array(
-        'format' => array(
+        'uid' => array(
           'columns' => array(
-            'format' => 'format',
+            'uid' => 'uid',
           ),
-          'table' => 'filter_format',
+          'table' => 'users',
         ),
       ),
       'indexes' => array(
-        'format' => array(
-          0 => 'format',
+        'uid' => array(
+          0 => 'uid',
         ),
       ),
-      'module' => 'text',
-      'settings' => array(),
-      'translatable' => '1',
-      'type' => 'text_long',
+      'module' => 'user_reference',
+      'settings' => array(
+        'referenceable_roles' => array(
+          2 => 0,
+          3 => 0,
+          4 => 0,
+          5 => '5',
+        ),
+        'referenceable_status' => array(
+          0 => 0,
+          1 => 0,
+        ),
+        'view' => array(
+          'args' => array(),
+          'display_name' => '',
+          'view_name' => '',
+        ),
+      ),
+      'translatable' => '0',
+      'type' => 'user_reference',
     ),
     'field_instance' => array(
       'bundle' => 'article',
@@ -957,16 +1277,16 @@ function beast_field_default_fields() {
       'display' => array(
         'default' => array(
           'label' => 'above',
-          'module' => 'text',
+          'module' => 'user_reference',
           'settings' => array(),
-          'type' => 'text_default',
-          'weight' => 13,
+          'type' => 'user_reference_default',
+          'weight' => 19,
         ),
         'full' => array(
           'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
-          'weight' => '6',
+          'weight' => 0,
         ),
         'rss' => array(
           'label' => 'above',
@@ -978,128 +1298,45 @@ function beast_field_default_fields() {
           'label' => 'above',
           'settings' => array(),
           'type' => 'hidden',
-          'weight' => 0,
+          'weight' => '0',
         ),
       ),
       'entity_type' => 'node',
-      'field_name' => 'field_top_keywords',
-      'label' => 'Calcuated Top Keywords',
-      'required' => 0,
-      'settings' => array(
-        'text_processing' => '0',
-        'user_register_form' => FALSE,
-      ),
-      'widget' => array(
-        'active' => 1,
-        'module' => 'text',
-        'settings' => array(
-          'rows' => '2',
-        ),
-        'type' => 'text_textarea',
-        'weight' => '15',
-      ),
-    ),
-  );
-
-  // Exported field: 'node-article-field_video'
-  $fields['node-article-field_video'] = array(
-    'field_config' => array(
-      'active' => '1',
-      'cardinality' => '1',
-      'deleted' => '0',
-      'entity_types' => array(),
-      'field_name' => 'field_video',
-      'foreign keys' => array(),
-      'indexes' => array(
-        'fid' => array(
-          0 => 'fid',
-        ),
-      ),
-      'module' => 'media',
-      'settings' => array(),
-      'translatable' => '1',
-      'type' => 'media',
-    ),
-    'field_instance' => array(
-      'bundle' => 'article',
-      'deleted' => '0',
-      'description' => '',
-      'display' => array(
-        'default' => array(
-          'label' => 'hidden',
-          'module' => 'media',
-          'settings' => array(
-            'file_view_mode' => 'default',
-          ),
-          'type' => 'media',
-          'weight' => '4',
-        ),
-        'full' => array(
-          'label' => 'hidden',
-          'module' => 'media',
-          'settings' => array(
-            'file_view_mode' => 'default',
-          ),
-          'type' => 'media',
-          'weight' => '4',
-        ),
-        'rss' => array(
-          'label' => 'hidden',
-          'settings' => array(),
-          'type' => 'hidden',
-          'weight' => '6',
-        ),
-        'teaser' => array(
-          'label' => 'hidden',
-          'settings' => array(),
-          'type' => 'hidden',
-          'weight' => '4',
-        ),
-      ),
-      'entity_type' => 'node',
-      'field_name' => 'field_video',
-      'label' => 'Video',
+      'field_name' => 'field_writer',
+      'label' => 'Article Writer',
       'required' => 0,
       'settings' => array(
         'user_register_form' => FALSE,
       ),
       'widget' => array(
         'active' => 1,
-        'module' => 'media',
-        'settings' => array(
-          'allowed_schemes' => array(
-            'public' => 'public',
-          ),
-          'allowed_types' => array(
-            'audio' => 0,
-            'default' => 0,
-            'image' => 0,
-            'video' => 'video',
-          ),
-          'progress_indicator' => 'throbber',
-        ),
-        'type' => 'media_generic',
-        'weight' => '33',
+        'module' => 'options',
+        'settings' => array(),
+        'type' => 'options_select',
+        'weight' => '40',
       ),
     ),
   );
 
   // Translatables
   // Included for use with string extractors like potx.
+  t('Article Promoted');
+  t('Article Promoter');
+  t('Article Type');
+  t('Article Writer');
   t('Audio');
+  t('Audio Reader');
   t('Body');
-  t('Calcuated Top Keywords');
-  t('Content Type');
-  t('Detected Backlinks');
+  t('Editor');
   t('Images');
   t('Initial Keywords');
   t('Related Product');
   t('Spintax Body');
-  t('Spintax Resource');
+  t('Spintax Spinner');
   t('Spintax Title');
   t('Syndicated Backlinks');
+  t('This article has been submitted to all relevant article directories and the resulting backlinking URLs have been added to the "Syndicated URLs" list.');
   t('URLs of pages which this article has been syndicated');
-  t('Video');
 
   return $fields;
 }
