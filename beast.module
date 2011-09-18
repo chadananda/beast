@@ -141,6 +141,10 @@ function beast_menu() {
 function beast_add_content_permission($node, $stage='content') {   
   if (!$node->type == 'article') return FALSE;
   if (!user_access('view any unpublished content')) return FALSE; 
+  $spintax_title = '';
+  $spintax_summary = '';
+  $spintax_body = '';
+  
   $was_submitted = isset($node->field_submitted[LANGUAGE_NONE][0]['value']) ?
     $node->field_submitted[LANGUAGE_NONE][0]['value'] : FALSE;   
   if ($was_submitted) return FALSE;    
@@ -647,7 +651,7 @@ function beast_site_setup_form($form, &$form_state) {
     $spinner_name = ucwords($spinner->name);
     $spinner_desc = '<br>' . t('The selected spinner is @name, ', array('@name' => $spinner_name));
     $spinner_desc .= '<a href="mailto:' . $spinner->mail . '?subject=' . 
-      'Articles needing audio at '. $GLOBALS['base_url'] . '&body=' . 
+      'Articles needing spintax at '. $GLOBALS['base_url'] . '&body=' . 
       urlencode("Hi {$spinner_name}, we've got {$needs_spintax} articles ready for you to spintax. Here's the list: {$spintax_link_url}") . '">[notify ' . $spinner_name . ']</a>'; 
   }
   else $spinner_desc = ''; 
@@ -657,7 +661,7 @@ function beast_site_setup_form($form, &$form_state) {
    '#title' =>t('Start Spinner creating spintax for articles (<b>@count</b> waiting for spintax)', 
      array('@count' => $needs_spintax)),    
    '#default_value' => variable_get('beast_content_spintax', 0), 
-   '#description'    => t('Assign reading task to audio reader. Providing him with the url: ') .
+   '#description'    => t('Assign spintax writing task to spinner. Providing him with the url: ') .
       $spintax_link . $spinner_desc, 
     '#suffix'  => '<div class="divider"> <i>' . t('wait for content audio reading and spintax') . '</i></div>',
   );  
@@ -670,7 +674,7 @@ function beast_site_setup_form($form, &$form_state) {
    '#title' =>t('Publish 9 initial articles, 3 of each type.  (<b>@published</b> currently published, <b>@queued</b> ready for publication)',
      array('@published' => $published, '@queued' => $queued)) 
     .  ' - ' . l(t('[edit content]'), 'admin/content', array('attributes' => array('target' => '_blank'))),    
-   '#default_value' => $count < 6 ? 0 : variable_get('beast_content_initialpub', 0), 
+   '#default_value' => $queued < 6 ? 0 : variable_get('beast_content_initialpub', 0), 
    '#description'    => t('Publish three articles of each type (blog, review, article): '), 
   );   
    
@@ -1161,6 +1165,17 @@ function beast_add_content_form_submit($form, &$form_state) {
   node_submit($node);
   node_save($node);    
   drupal_set_message("Successfully added content to article: ". l($node->title, 'node/' . $node->nid));
+  
+  // log this action
+  $action = array(
+    'nid'    => $node->nid,
+    'date'   => REQUEST_TIME,
+    'uid'    => $GLOBALS['user']->uid,
+    'action' => 'created content',
+  );   
+  $message = date("F j, Y, g:i a", REQUEST_TIME) . ' ' . $GLOBALS['user']->name . ' ' . $action['action'] . ' "' . substr($node->title, 0, 30) . '..."';
+  watchdog('beast_content_action', $message, $action, WATCHDOG_INFO);
+  
   drupal_goto('admin/needs-content');
 }
 function beast_live_text_info($text='', $keywords='', $just_validate=FALSE) {
@@ -1361,6 +1376,16 @@ function beast_add_audio_uploadform_validate($form, &$form_state) {
     node_save($node);  
     drupal_set_message(t('Thank you. The MP3 file was saved and it\'s page was removed from the list below. <br> Please proceed to the next audio reading.'));
     $form_state['redirect'] = 'admin/needs-audio';
+    
+      // log this action
+    $action = array(
+      'nid'    => $node->nid,
+      'date'   => REQUEST_TIME,
+      'uid'    => $GLOBALS['user']->uid,
+      'action' => 'added audio',
+    );   
+    $message = date("F j, Y, g:i a", REQUEST_TIME) . ' ' . $GLOBALS['user']->name . ' ' . $action['action'] .   ' to "' . substr($node->title, 0, 30) . '..."';
+    watchdog('beast_content_action', $message, $action, WATCHDOG_INFO);
   }
   else form_set_error('', t('File upload failed.')); 
 }  
@@ -1516,6 +1541,17 @@ function beast_add_spintax_uploadform_submit($form, &$form_state) {
   node_submit($node);
   node_save($node);  
   drupal_set_message(t('Thank you. The spintax data was saved and it\'s page was removed from the list below. <br> Please proceed to the next article spinning.'));
+  
+  // log this action
+    $action = array(
+      'nid'    => $node->nid,
+      'date'   => REQUEST_TIME,
+      'uid'    => $GLOBALS['user']->uid,
+      'action' => 'added spintax',
+    );   
+    $message = date("F j, Y, g:i a", REQUEST_TIME) . ' ' . $GLOBALS['user']->name . ' ' . $action['action'] .   ' to "' . substr($node->title, 0, 30) . '..."';
+    watchdog('beast_content_action', $message, $action, WATCHDOG_INFO);
+    
   drupal_goto('admin/needs-spintax');
 }
 
@@ -1636,7 +1672,19 @@ function beast_article_prmote_form_submit($form, &$form_state) {
   node_submit($node);
   node_save($node);  
   drupal_set_message(t('Thank you. The spintax data was saved and it\'s page was removed from the list below. <br> Please proceed to the next article spinning.'));
-  drupal_goto('admin/needs-spintax');
+  
+  // log this action
+  $action = array(
+      'nid'    => $node->nid,
+      'date'   => REQUEST_TIME,
+      'uid'    => $GLOBALS['user']->uid,
+      'action' => 'promoted article',
+    );   
+    $message = date("F j, Y, g:i a", REQUEST_TIME) . ' ' . $GLOBALS['user']->name . ' ' . $action['action'] .   ' "' . substr($node->title, 0, 30) . '..."';
+    watchdog('beast_content_action', $message, $action, WATCHDOG_INFO);
+   
+  
+  drupal_goto('admin/needs-promoted');
 }
 function beast_generate_resource_box_spintax($node, $html = TRUE) {
   /*
@@ -1670,11 +1718,13 @@ function beast_generate_resource_box_spintax($node, $html = TRUE) {
   );
   return _beast_applytemplate(variable_get('beast_resource_box',''), $details); 
 }
+
 function beast_top_page_keywords($node, $count=10, $maxlen=200) {
   if (!module_exists('blink')) {
     return beast_keyword_list_cleanup($node->field_initial_keywords[LANGUAGE_NONE][0]['value'], $maxlen);
   }
   else { 
+    $goals = array();
     $page_url = url('node/' . $node->nid, array('absolute' => TRUE));
     $page_goals = blink_top_goals_random($count*5, $count, $page_url); 
     if (count($page_goals) < $count) {
@@ -1855,11 +1905,11 @@ function beast_update_blink_initial_keywords_cronjob() {
     }
   }
   // loop through the current node keywords and add them if they are not in the current goals
-  if ($node_kws) foreach ($node_kws as $kw => $nids) {
+  if (isset($node_kws) && is_array($node_kws)) foreach ($node_kws as $kw => $nids) {
     foreach ($nids as $nid) {
       $found = FALSE;
       $url =  url('node/' . $nid, array('absolute' => TRUE));
-      if ($beast_index[$kw]) foreach ($beast_index[$kw] as $goal) if ($goal['url'] == $url) $found = TRUE;  
+      if (isset($beast_index[$kw])) foreach ($beast_index[$kw] as $goal) if ($goal['url'] == $url) $found = TRUE;  
       if (!$found) {
         blink_add_keyword_goal($kw, $url, variable_get('beast_initial_keyword_weight', 1), $source);
         drupal_set_message("Added new {$source} goal '{$kw}' '{$url}'");
@@ -1974,7 +2024,26 @@ function beast_mail($key, &$message, $params) {
 
  
 function beast_editor_dashboard() { 
-  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');   
+  $site_content = beast_editor_dashboard_site_content();
+  $activity = beast_editor_dashboard_activity();
+  $result = "<table class='organizer'>
+    <tr><td>{$site_content}</td><td>{$activity}</td></tr></table>";  
+  return $result;  
+}
+function beast_editor_dashboard_activity() { 
+  $content ='';
+  $sql = "SELECT * FROM {watchdog} WHERE type=:type";
+  $rows = db_query($sql, array(':type' => 'beast_content_action'));
+  
+  $sec = "<div class='site_content actions'><h1> Content Activity </h1><ul>"; 
+  foreach($rows as $row)  $sec .= "<li> " . $row->message . "</li>";  
+  $content .= $sec . '</ul></div>';
+  
+  return $content;  
+}
+function beast_editor_dashboard_site_content() { 
+  drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css'); 
+  $content = '';  
  
  $needs_writing = count(views_get_view_result('beast_articles', 'page_2'));      
   $writing_link_url = url('admin/needs-content', array('absolute' => TRUE));
@@ -1995,10 +2064,7 @@ function beast_editor_dashboard() {
   $published_link_url = url('admin/content', array('absolute' => TRUE));
   
  $queued =  count(views_get_view_result('beast_articles', 'page_6'));     
-  $queued_link_url = url('admin/queued', array('absolute' => TRUE));
-  
-  
-
+  $queued_link_url = url('admin/queued', array('absolute' => TRUE)); 
  
  
  $last_published_date = variable_get('beast_last_queued_publication_date', time());
@@ -2022,7 +2088,7 @@ function beast_editor_dashboard() {
     $reader_last_submitted = beast_date_ago(variable_get('beast_last_submitted_'.$reader->uid, strtotime('-1 month'))); 
     $reader_link = '<a href="mailto:' . $reader->mail . '?subject=' . 
       'Articles needing audio at '. $GLOBALS['base_url'] . '&body=' . 
-      urlencode("Hi {$reader_name}, we've got {$needs_audio} articles ready for you to record. Here's the list: {$reading_link_url}") . '" target="_blank">notify ' . $reader_name . '</a>';   
+      urlencode("Hi {$reader_name}, we've got {$needs_audio} articles ready for you to record. Here's the list: {$audio_link_url}") . '" target="_blank">notify ' . $reader_name . '</a>';   
     $reader_desc = "<div class='desc'> ({$reader_link}, last submitted content {$reader_last_submitted} days ago) </div>";  
   }
   if ($spinner = variable_get('beast_checklist_user_spinner', 0)) {
@@ -2040,7 +2106,7 @@ function beast_editor_dashboard() {
     $promoter_last_submitted = beast_date_ago(variable_get('beast_last_submitted_'.$promoter->uid, strtotime('-1 month'))); 
     $promoter_link = '<a href="mailto:' . $promoter->mail . '?subject=' . 
       'Articles needing promoted at '. $GLOBALS['base_url'] . '&body=' . 
-      urlencode("Hi {$promoter_name}, we've got {$needs_promotion} articles ready for you to promote. Here's the list: {$promoter_link_url}") . '" target="_blank">notify ' . $promoter_name . '</a>';   
+      urlencode("Hi {$promoter_name}, we've got {$needs_promotion} articles ready for you to promote. Here's the list: {$promotion_link_url}") . '" target="_blank">notify ' . $promoter_name . '</a>';   
     $promoter_desc = " <div class='desc'> ({$promoter_link}, last submitted content {$promoter_last_submitted} days ago) </div>";  
   }
   
@@ -2053,8 +2119,7 @@ function beast_editor_dashboard() {
   $sec .= "<li class='" . ($needs_writing? 'pending' : 'ok') . "'> " . l('Assignments needing content:', $writing_link_url) . " <span class='val'>{$needs_writing}</span>  " .
    ($needs_writing && $writer ? $writer_desc : '') . "</li>";  
    
-  $sec .= "<li class='" . ($needs_proofread? 'pending' : 'ok') . "' class=''> " . l('Articles needing proofread:', $proofing_link_url) . " <span class='val'>{$needs_proofread}</span>  " .
-   ($needs_proofread ? $proofing_link_url : '') . "</li>";  
+  $sec .= "<li class='" . ($needs_proofread? 'pending' : 'ok') . "' class=''> " . l('Articles needing proofread:', $proofing_link_url) . " <span class='val'>{$needs_proofread}</span>  " . "</li>";  
    
   $sec .= "<li class='" . ($needs_audio? 'pending' : 'ok') . "'> " . l('Articles needing audio reading:', $audio_link_url) . " <span class='val'>{$needs_audio}</span>  " .
    ($needs_audio && $reader ? $reader_desc : '') . "</li>";  
@@ -2513,11 +2578,15 @@ function beast_date_ago($date) {
 
 function beast_contributor_penname($account) {
   if (is_numeric($account)) $account = user_load($account);  
-  $result = trim($account->field_penname[LANGUAGE_NONE][0]['safe_value']); 
+  if (isset($account->field_penname[LANGUAGE_NONE][0]['safe_value'])) {
+    $result = trim($account->field_penname[LANGUAGE_NONE][0]['safe_value']); 
+  }
   if (!$result) {
-    $full_name = $account->field_fullname[LANGUAGE_NONE][0]['safe_value'];
-    list($result) = explode(' ', $full_name);
-    $result = trim($result);
+    if (isset($account->field_fullname[LANGUAGE_NONE][0]['safe_value'])) {
+      $full_name = $account->field_fullname[LANGUAGE_NONE][0]['safe_value'];
+      list($result) = explode(' ', $full_name);
+      $result = trim($result);
+    }
   }  
   if (!$result) {
     $user_name = $account->name;
