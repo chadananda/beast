@@ -1,6 +1,5 @@
 core = "7.x"
-dependencies[] = "audiofield"
-dependencies[] = "blink"
+dependencies[] = "audiofield" 
 dependencies[] = "dashboard"
 dependencies[] = "entity"
 dependencies[] = "features"

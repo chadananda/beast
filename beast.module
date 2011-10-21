@@ -21,6 +21,7 @@ function beast_menu() {
     'weight' => -25,
     'type' => MENU_NORMAL_ITEM,
   );
+
   $items['admin/config/development/beast/feed-settings'] = array(
     'title' => 'Feeds',
     'description' => 'Settings for Beast Feeds',
@@ -30,7 +31,19 @@ function beast_menu() {
     'access arguments' => array('administer site configuration'),
     //'file' => 'koc.admin.inc',
     'type'  => MENU_DEFAULT_LOCAL_TASK,
+  );  
+  
+  $items['admin/config/development/beast/problems'] = array(
+    'title' => 'Issues',
+    'description' => 'Errors or Problems needing Focus',
+    'page callback' => 'beast_problem_report',
+    'access callback' => TRUE, //'user_access',
+    //'access arguments' => array('administer site configuration'),
+    //'file' => 'koc.admin.inc',
+    'type'  => MENU_LOCAL_TASK,
   );
+  
+
   
  // handles the three rss feeds in an imagecache manner 
  $path = trim(parse_url(file_create_url('public://rss'), PHP_URL_PATH), '/'); 
@@ -171,6 +184,18 @@ function beast_add_content_permission($node, $stage='content') {
     case 'promote': return ($has_content && $has_audio && $has_spintax && $is_published &&
        $proofread && !$is_promoted);   
   }  
+}
+ 
+function beast_problem_report() {
+  //return "<h3> Site Issues </h3>";
+  
+  $files = db_query("SELECT * FROM {file_managed} WHERE status=1");
+  foreach ($files as $file) {
+     $filepath = drupal_realpath($file->uri);
+     if (file_exists($filepath)) drupal_set_message("file ok: $filepath");
+      else drupal_set_message("file missing: $filepath", 'warning');
+  }
+  return "<h3> Site Issues </h3>";
 }
  
 // main settings form
@@ -1014,6 +1039,7 @@ function beast_add_content_assignments_form_submit($form, &$form_state) {
 function beast_add_content_form($form, &$form_state, $node) { 
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
   drupal_add_js(drupal_get_path('module', 'beast') .'/live_text_info.js', 'file');
+  
   
   $form['beast_add_content_nid'] = array(
     '#type'       => 'hidden',
@@ -1908,7 +1934,11 @@ function beast_remove_old_rss_cachefiles_cronjob($force=FALSE) {
   $dir = drupal_realpath('public://rss/rss/');
   if ($dp = @opendir($dir)) {
     while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
-      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) {
+        $full_path = $dir . '/' . $file;
+        unlink($full_path); 
+        watchdog('beast', t('Deleted oudated rss file: @file', array('@file' => $full_path)));
+      }
     @closedir($dp); 
     @rmdir($dir);
   } 
@@ -1916,7 +1946,11 @@ function beast_remove_old_rss_cachefiles_cronjob($force=FALSE) {
   $dir = drupal_realpath('public://rss/podcast/');
   if ($dp = @opendir($dir)) {
     while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
-      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) {
+        $full_path = $dir . '/' . $file;
+        unlink($full_path); 
+        watchdog('beast', t('Deleted oudated rss file: @file', array('@file' => $full_path)));
+      }
     @closedir($dp);
     @rmdir($dir); 
   }
@@ -1924,7 +1958,11 @@ function beast_remove_old_rss_cachefiles_cronjob($force=FALSE) {
   $dir = drupal_realpath('public://rss/reviews/');
   if ($dp = @opendir($dir)) {
     while ($file = @readdir($dp)) if ((eregi('.xml', $file)) 
-      && (filemtime($dir . '/' . $file) < $refresh_from)) unlink($dir . '/' . $file); 
+      && (filemtime($dir . '/' . $file) < $refresh_from)) {
+        $full_path = $dir . '/' . $file;
+        unlink($full_path); 
+        watchdog('beast', t('Deleted oudated rss file: @file', array('@file' => $full_path)));
+      }
     @closedir($dp); 
     @rmdir($dir);
   } 
@@ -2632,7 +2670,8 @@ function beast_r($array) {
 }
 
 function beast_cleanup_bodytext($text, $truncate_for_teaser = false) {
-  if (!trim($text)) return '';
+  $result = '';
+  if (!trim($text)) return $result;
   // search and replace odd characters
   $text = str_replace('’', "'", $text);
   $text = str_replace('‘', "'", $text);
@@ -2688,6 +2727,6 @@ function beast_watchdog($log_entry) {
   if (!user_access('administer site configuration')) return; 
   // show code errors
   //if (in_array($log_entry['type'], array('php')) || in_array($log_entry['severity'], array('notice')))
-  drupal_set_message(t($log_entry['message'], $log_entry['variables']), 'warning', FALSE);  
+  //drupal_set_message(t($log_entry['message'], $log_entry['variables']), 'warning', FALSE);  
 }
 
