@@ -166,12 +166,16 @@ function beast_add_content_permission($node, $stage='content') {
   $proofread = $node->promote;
   // spintax fields 
   if (isset($node->field_spintax_title[LANGUAGE_NONE][0]['value']))
-    $spintax_title = (boolean) $node->field_spintax_title[LANGUAGE_NONE][0]['value'];
+    $spintax_title = (boolean) trim($node->field_spintax_title[LANGUAGE_NONE][0]['value']);
   if (isset($node->field_spintax_body[LANGUAGE_NONE][0]['summary']))
-    $spintax_summary =  (boolean) $node->field_spintax_body[LANGUAGE_NONE][0]['summary'];
+    $spintax_summary =  (boolean) trim($node->field_spintax_body[LANGUAGE_NONE][0]['summary']);
   if (isset($node->field_spintax_body[LANGUAGE_NONE][0]['value']))
-    $spintax_body = (boolean) $node->field_spintax_body[LANGUAGE_NONE][0]['value'];
-  $has_spintax = (boolean) ($spintax_title && $spintax_summary && $spintax_body); 
+    $spintax_body = (boolean) trim($node->field_spintax_body[LANGUAGE_NONE][0]['value']);
+    
+  //drupal_set_message($spintax_title . ', ' . $spintax_summary . ', ' . $spintax_body);
+   
+  $has_spintax = (boolean) ($spintax_title  && $spintax_summary && $spintax_body);  
+  //$has_spintax = (boolean) (!$spintax_title || !$spintax_summary || !$spintax_body); 
   $has_audio = isset($node->field_audio) && (count($node->field_audio)>0);
   $is_published = (boolean) $node->status; 
   $is_promoted = (boolean) $node->field_submitted[LANGUAGE_NONE][0]['value'];  
@@ -1600,6 +1604,77 @@ function beast_article_prmote_form($form, &$form_state, $node) {
   );  
    
   $author = user_load($node->uid);  
+  
+  
+  
+   
+  // ==============================================================
+  $logo = '<img src="http://ezinearticles.com/images/ea_logo.png" align="right" style="margin-top:-35px; margin-right:-40px; width: 150px; border:1px solid silver;  background:white;" />';
+  $form['tabs']['ezinearticles.com'] = array(
+      '#type'           => 'fieldset',
+      '#title'          => t('ezinearticles.com'),  
+      '#collapsible'    => TRUE,   
+      '#description'    => $logo . t('Inexpensive distribution with spinnable resource boxes. ').
+        l('[submission page]', 'http://www.spindistribute.com/cp-order-distributions', 
+          array('attributes' => array('target' => '_blank'))),  
+  );    
+  $form['tabs']['ezinearticles.com']['spindis_title'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Spintax Title"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 2,
+      '#default_value'  => $node->field_spintax_title[LANGUAGE_NONE][0]['value'], 
+      '#attributes'     => array('class' => array('readonly')),
+  );  
+  $form['tabs']['ezinearticles.com']['spindis_summary'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Spintax Summary"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 3,
+      '#default_value'  => $node->field_spintax_body[LANGUAGE_NONE][0]['summary'], 
+      '#attributes'     => array('class' => array('readonly')),
+  );   
+  $form['tabs']['ezinearticles.com']['spindis_body'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Spintax Body"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 4,
+      '#default_value'  => $node->field_spintax_body[LANGUAGE_NONE][0]['value'], 
+      '#attributes'     => array('class' => array('readonly')),
+  );
+  $form['tabs']['ezinearticles.com']['spindis_author'] = array(
+      '#type'           => 'textfield',
+      '#title'          => t("Author Pen Name"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#size'           => 30, 
+      '#default_value'  => ucwords($author->field_penname['und'][0]['value']), 
+      '#attributes'     => array('class' => array('readonly')), 
+  );  
+  $form['tabs']['ezinearticles.com']['spindis_resource_html'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("About the Author, HTML"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 4,
+      '#default_value'  => beast_generate_resource_box_spintax($node, TRUE), 
+      '#attributes'     => array('class' => array('readonly')),
+  );
+  $form['tabs']['ezinearticles.com']['spindis_resource_nohtml'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("About the Author, no HTML"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 4,
+      '#default_value'  => beast_generate_resource_box_spintax($node, FALSE), 
+      '#attributes'     => array('class' => array('readonly')),
+  );  
+  $form['tabs']['ezinearticles.com']['spindis_resource_keywords'] = array(
+      '#type'           => 'textarea',
+      '#title'          => t("Keywords"),
+       //  l('[copy]', '#copytitle', array('attributes' => array('id' => 'copytitle'))),   
+      '#rows'           => 2,
+      '#default_value'  => beast_top_page_keywords($node, 10, 200), 
+      '#attributes'     => array('class' => array('readonly')),
+  ); 
+  
    
   // ==============================================================
   $logo = '<img src="http://www.spindistribute.com/images/logo.gif" align="right" style="margin-top:-27px; margin-right:-40px; width: 150px; border:1px solid silver; border-bottom:0;" />';
@@ -1670,6 +1745,7 @@ function beast_article_prmote_form($form, &$form_state, $node) {
   
 
   // ==============================================================
+  /*
   $logo = '<img src="http://www.spindistribute.com/images/logo.gif" align="right" style="margin-top:-27px; margin-right:-40px; width: 150px; border:1px solid silver; border-bottom:0;" />';
   $form['tabs']['dyadirect'] = array(
       '#type'           => 'fieldset',
@@ -1743,7 +1819,7 @@ function beast_article_prmote_form($form, &$form_state, $node) {
       '#attributes'     => array('class' => array('readonly')),
   ); 
   
-  
+  */
   
   
   
@@ -1761,7 +1837,7 @@ function beast_article_prmote_form($form, &$form_state, $node) {
   
   $form['other_pages_to_promote_markup'] = array( 
     '#markup' => "<h1 style='text-align:center; width:100%'>" . 
-      l(t('Other content needing prmoted >>'), 'admin/needs-promoted') . "</h1>",
+      l(t('Other content needing promoted >>'), 'admin/needs-promoted') . "</h1>",
     '#weight'=> 15,
   );
    
@@ -2626,7 +2702,8 @@ function _beast_duration_format($secs) {
 function beast_keyword_list_cleanup($comma_list, $maxlen=80) {
   if (is_array($comma_list)) $kws = $comma_list;
    else $kws = explode(',', strtolower($comma_list));  
-  $len=0;
+  //drupal_set_message("kw <pre>". print_r($kws, true) . "</pre>");  
+  $len=0; $new = array(); $final = array();
   foreach ($kws as $kw)  if (str_word_count($kw) < 5) $new[trim($kw)] = trim($kw); // trim and remove dups 
   foreach ($new as $kw) if (($len + strlen(trim($kw)) + 1) < $maxlen) {
     $len += strlen($kw) + 1;
