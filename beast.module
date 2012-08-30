@@ -3,9 +3,7 @@
  * @file
  * Code for the Beast feature.
  */
-
-include_once('beast.features.inc');
-
+  
 // my custom code here
 
 function beast_menu() { 
