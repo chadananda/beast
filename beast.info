@@ -1,9 +1,9 @@
-description = "Feed the Beast - Site Content Promotion" 
-files[] = "beast_image_presets.php.inc"
 name = "Beast"  
-project = "* King of Content"  
-
+description = "Feed the Beast - Site Content Promotion" 
 core = "7.x"
+configure = "admin/config/development/beast" 
+package = "* King of Content"  
+
 dependencies[] = "audiofield" 
 dependencies[] = "dashboard"
 dependencies[] = "entity"
@@ -17,3 +17,4 @@ dependencies[] = "pathologic"
 dependencies[] = "shortener"
 dependencies[] = "taxonomy"
 dependencies[] = "user_reference"
+files[] = "beast_image_presets.php.inc"
