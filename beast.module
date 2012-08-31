@@ -2,12 +2,10 @@
 /**
  * @file
  * Code for the Beast feature.
- */
-  
-// my custom code here
+ */ 
 
 function beast_menu() { 
-  
+
   $items['admin/config/development/beast'] = array(
     'title' => 'Beast Tools',
     'description' => 'Settings for Beast Content Promotion system',
@@ -142,11 +140,11 @@ function beast_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('administer nodes'),
     'type' => MENU_CALLBACK, 
-  ); 
-  
-    
- return $items; 
+  );  
+ return $items;  
 }
+
+
 
 // controls access to content tabs (audio, spintax etc)
 function beast_add_content_permission($node, $stage='content') {   
@@ -187,7 +185,8 @@ function beast_add_content_permission($node, $stage='content') {
        $proofread && !$is_promoted);   
   }  
 }
- 
+
+
 function beast_problem_report() {
   //return "<h3> Site Issues </h3>";
   
@@ -200,26 +199,14 @@ function beast_problem_report() {
   return "<h3> Site Issues </h3>";
 }
  
+ 
+
+
 // main settings form
 function beast_admin_settings_form($form, &$form_state) {
   // beast_update_blink_goals_cronjob(); // for testing 
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_forms.css'); 
-  // beast_update_blink_initial_keywords_cronjob();  // for testing porpoises 
-   
-   /*
-  if ($url = $_GET['image']) {  
-    if ($file = @fopen($url, "r")) {
-      $headers = stream_get_meta_data($file); 
-      beast_r($headers);
-      foreach ($headers as $header) if (is_array($header)) foreach ($header as $value) if (strpos($value, 'ontent-Type:')) { 
-        $mime = trim(end(explode(":", $value)));
-        list($type) = explode("/", $mime);
-        if ($type = 'image') drupal_set_message("Got image: {$url}"); 
-         else drupal_set_message("Image not recognized: {$url}", 'warning'); 
-      }   
-    } 
-  }
-  */
+  // beast_update_blink_initial_keywords_cronjob();  // for testing porpoises  
   
   //=========================================== 
   $form['site_config'] = array(
@@ -706,17 +693,7 @@ function beast_site_setup_form($form, &$form_state) {
    '#description'    => t('Publish three articles of each type (blog, review, article): '), 
   );   
    
-   /*
-  //$count = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=0 AND promote=1")->fetchField();
-  $form['tabs']['site_setup_content']['beast_content_schedule'] = array(
-   '#type' => 'checkbox',
-   '#title' =>t('Schedule remaining articles. (<b>@queued</b> scheduled, <b>@needs_scheduled</b> needing scheduled)',
-      array('@queued' => $queued))
-    .  ' - ' . l(t('[list of articles needing scheduled]'), 'admin/needs-scheduled', array('attributes' => array('target' => '_blank'))),    
-   '#default_value' => variable_get('beast_content_schedule', 0),  
-   '#description' => t('Currently <b>@count</b> articles are scheduled in the publication queue.',
-     array('@count' => $queued)),
-  ); */
+ 
  
   $needs_promoted = count(views_get_view_result('beast_articles', 'page_5'));  
   //$count = db_query("SELECT count(*) FROM {node} WHERE type='article' AND status=0 AND promote=1")->fetchField();
@@ -810,6 +787,8 @@ function beast_site_setup_form_submit($form, &$form_state) {
   // any custom submission logic from setup
 }
 
+
+
 // bulk add affiliate products form
 function beast_add_affiliated_products_form($form, &$form_state) {
 $default ='Product Name = "Product Name Here, Can be Long"
@@ -838,12 +817,12 @@ Product URL = "http://full-affiliate-url-here.com?affid=whatever"
   return $form;  
 }
 function _beast_parse_products($text) { // returns an array of values
-/*
-Product Name = "Product Name Here, Can be Long"
-Keywords = "product name, product category, related keywords"
-Description = "Long product description, can contain markdown or simple html syntax"
-Product URL = "http://full-affiliate-url-here.com?affid=whatever" 
-=============== */
+ 
+//Product Name = "Product Name Here, Can be Long"
+//Keywords = "product name, product category, related keywords"
+//Description = "Long product description, can contain markdown or simple html syntax"
+//Product URL = "http://full-affiliate-url-here.com?affid=whatever" 
+//===============  
   $lines = explode("\n", $text);
   $count =0;
   foreach ($lines as $line) {
@@ -920,6 +899,8 @@ function beast_add_affiliated_products_form_submit($form, &$form_state) {
   } 
 }
 
+
+
 // bulk add article assignments form
 function beast_add_content_assignments_form($form, &$form_state) {
 $default ="
@@ -963,11 +944,11 @@ function _beast_parse_assignments($text) { // returns an array of values
         else if ($key == 'article type') $result[$count][$key] = strtolower($value);
          else if ($key == 'keywords') { 
            $result[$count][$key] = beast_keyword_list_cleanup($value, 80);
-           /*
-           $kws = explode(',', strtolower($value));
-           $new = array();
-           foreach ($kws as $kw)  if (str_word_count($kw) < 5) $new[trim($kw)] = trim($kw); // trim and remove dups
-           $result[$count][$key] = implode(', ', $new); */
+           
+           //$kws = explode(',', strtolower($value));
+          // $new = array();
+           //foreach ($kws as $kw)  if (str_word_count($kw) < 5) $new[trim($kw)] = trim($kw); // trim and remove dups
+           //$result[$count][$key] = implode(', ', $new); 
          }
          else $result[$count][$key] = $value;
     }
@@ -1036,6 +1017,9 @@ function beast_add_content_assignments_form_submit($form, &$form_state) {
     drupal_set_message("Created new {$a['article type']}: ". l($node->title, 'node/' . $node->nid));
   } 
 }
+
+
+
 
 // contributor add content
 function beast_add_content_form($form, &$form_state, $node) { 
@@ -1288,6 +1272,9 @@ function beast_live_text_info($text='', $keywords='', $just_validate=FALSE) {
   } 
 }
 
+
+
+
 // contributor add audio to page
 function beast_add_audio_template($node) {   
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css');
@@ -1421,6 +1408,10 @@ function beast_add_audio_uploadform_validate($form, &$form_state) {
   else form_set_error('', t('File upload failed.')); 
 }  
 
+
+
+
+
 // contributor add spintax fields
 function _beast_validate_spintax($text, $min=5, &$error) {
   $error ='';
@@ -1429,6 +1420,8 @@ function _beast_validate_spintax($text, $min=5, &$error) {
   elseif (($c['{'] < $min) || ($c['|'] < $min*3)) $error = t('spintax needs more spin options.');  
   return !$error;
 }
+
+
 function beast_add_spintax_uploadform($form, &$form_state, $node) { 
   drupal_add_css(drupal_get_path('module', 'beast') . '/beast_templates.css'); 
   drupal_add_js(drupal_get_path('module', 'beast') .'/article_spintax.js', 'file');
@@ -1537,22 +1530,29 @@ function beast_add_spintax_uploadform($form, &$form_state, $node) {
   $form['#submit'][] = 'beast_add_spintax_uploadform_submit';    
   return $form;  
 }
-function beast_add_spintax_uploadform_validate($form, &$form_state) { 
+
+
+ 
+
+function beast_add_spintax_uploadform_validate($form, &$form_state) {  
   $f = $form_state['values'];   
   if (!$f['beast_syndicated_audio_upload_nid']) {
     form_set_error('', 'Oops, missing node id' );
     return;
-  }
- 
-  if (!_beast_validate_spintax($f['spintax_title'], 5, &$error))
+  } 
+  if (!_beast_validate_spintax($f['spintax_title'], 5, $error))
     form_set_error('spintax_title', 'Title: ' . $error);
     
-  if (!_beast_validate_spintax($f['spintax_summary'], 5, &$error))
+  if (!_beast_validate_spintax($f['spintax_summary'], 5, $error))
     form_set_error('spintax_summary', 'Summary: ' . $error);
     
-  if (!_beast_validate_spintax($f['spintax_body'], 15, &$error))
-    form_set_error('spintax_body', 'Body: ' . $error);  
+  if (!_beast_validate_spintax($f['spintax_body'], 15, $error))
+    form_set_error('spintax_body', 'Body: ' . $error);   
 }
+
+
+
+
 function beast_add_spintax_uploadform_submit($form, &$form_state) {
   //drupal_set_message('beast_add_spintax_uploadform_submit');
   $f = $form_state['values'];  
@@ -1586,6 +1586,9 @@ function beast_add_spintax_uploadform_submit($form, &$form_state) {
     
   drupal_goto('admin/needs-spintax');
 }
+
+
+
 
 // ariticle promotion form
 function beast_article_prmote_form($form, &$form_state, $node) { 
